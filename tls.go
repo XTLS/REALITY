@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-Go file.
 
-// Package tls partially implements TLS 1.2, as specified in RFC 5246,
-// and TLS 1.3, as specified in RFC 8446.
-package tls
+// Server side implementation of REALITY protocol, a fork of package tls in Go 1.19.5.
+// For client side, please follow https://github.com/XTLS/Xray-core.
+package reality
 
 // BUG(agl): The crypto/tls package only implements some countermeasures
 // against Lucky13 attacks on CBC-mode encryption, and only on SHA1

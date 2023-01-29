@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-Go file.
 
-package tls
+package reality
 
 import (
 	"crypto"
@@ -10,16 +10,15 @@ import (
 	"crypto/cipher"
 	"crypto/des"
 	"crypto/hmac"
-	"crypto/internal/boring"
 	"crypto/rc4"
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
 	"hash"
-	"internal/cpu"
 	"runtime"
 
 	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/sys/cpu"
 )
 
 // CipherSuite is a TLS cipher suite. Note that most functions in this package
@@ -422,13 +421,7 @@ func cipherAES(key, iv []byte, isRead bool) any {
 
 // macSHA1 returns a SHA-1 based constant time MAC.
 func macSHA1(key []byte) hash.Hash {
-	h := sha1.New
-	// The BoringCrypto SHA1 does not have a constant-time
-	// checksum function, so don't try to use it.
-	if !boring.Enabled {
-		h = newConstantTimeHash(h)
-	}
-	return hmac.New(h, key)
+	return hmac.New(sha1.New, key)
 }
 
 // macSHA256 returns a SHA-256 based MAC. This is only supported in TLS 1.2 and
@@ -516,13 +509,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
 	if err != nil {
 		panic(err)
 	}
-	var aead cipher.AEAD
-	if boring.Enabled {
-		aead, err = boring.NewGCMTLS(aes)
-	} else {
-		boring.Unreachable()
-		aead, err = cipher.NewGCM(aes)
-	}
+	aead, err := cipher.NewGCM(aes)
 	if err != nil {
 		panic(err)
 	}
@@ -582,7 +569,6 @@ func (c *cthWrapper) Write(p []byte) (int, error) { return c.h.Write(p) }
 func (c *cthWrapper) Sum(b []byte) []byte         { return c.h.ConstantTimeSum(b) }
 
 func newConstantTimeHash(h func() hash.Hash) func() hash.Hash {
-	boring.Unreachable()
 	return func() hash.Hash {
 		return &cthWrapper{h().(constantTimeHash)}
 	}
