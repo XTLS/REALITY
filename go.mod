@@ -1,6 +1,6 @@
 module github.com/xtls/reality
 
-go 1.19
+go 1.20
 
 require (
 	github.com/pires/go-proxyproto v0.6.2
