@@ -25,6 +25,11 @@ import (
 // A Conn represents a secured connection.
 // It implements the net.Conn interface.
 type Conn struct {
+	AuthKey       []byte
+	ClientVer     [3]byte
+	ClientTime    time.Time
+	ClientShortId [8]byte
+
 	// constant
 	conn        net.Conn
 	isClient    bool
@@ -162,6 +167,9 @@ func (c *Conn) NetConn() net.Conn {
 // A halfConn represents one direction of the record layer
 // connection, either sending or receiving.
 type halfConn struct {
+	handshakeLen [7]int
+	handshakeBuf []byte
+
 	sync.Mutex
 
 	err     error  // first permanent error
@@ -514,9 +522,36 @@ func (hc *halfConn) encrypt(record, payload []byte, rand io.Reader) ([]byte, err
 
 			// Encrypt the actual ContentType and replace the plaintext one.
 			record = append(record, record[0])
+			padding := 0
+			if recordType(record[0]) == recordTypeHandshake && hc.handshakeLen[1] != 0 {
+				switch payload[0] {
+				case typeEncryptedExtensions:
+					padding = hc.handshakeLen[2]
+					hc.handshakeLen[2] = 0
+				case typeCertificate:
+					padding = hc.handshakeLen[3]
+					hc.handshakeLen[3] = 0
+				case typeCertificateVerify:
+					padding = hc.handshakeLen[4]
+					hc.handshakeLen[4] = 0
+				case typeFinished:
+					padding = hc.handshakeLen[5]
+					hc.handshakeLen[5] = 0
+				case typeNewSessionTicket:
+					padding = hc.handshakeLen[6]
+					hc.handshakeLen[6] = 0
+					record[5] = byte(recordTypeApplicationData)
+					record[6] = 0
+				}
+				padding -= len(record) + c.Overhead()
+				if padding < 0 {
+					return nil, fmt.Errorf("payload[0]: %v, padding: %v", payload[0], padding)
+				}
+				record = append(record, empty[:padding]...)
+			}
 			record[0] = byte(recordTypeApplicationData)
 
-			n := len(payload) + 1 + c.Overhead()
+			n := len(record) + c.Overhead() - recordHeaderLen
 			record[3] = byte(n >> 8)
 			record[4] = byte(n)
 
@@ -1008,6 +1043,16 @@ func (c *Conn) writeRecordLocked(typ recordType, data []byte) (int, error) {
 func (c *Conn) writeRecord(typ recordType, data []byte) (int, error) {
 	c.out.Lock()
 	defer c.out.Unlock()
+
+	if typ == recordTypeHandshake && c.out.handshakeBuf != nil &&
+		len(data) > 0 && data[0] != typeServerHello {
+		c.out.handshakeBuf = append(c.out.handshakeBuf, data...)
+		if data[0] != typeFinished {
+			return len(data), nil
+		}
+		data = c.out.handshakeBuf
+		c.out.handshakeBuf = nil
+	}
 
 	return c.writeRecordLocked(typ, data)
 }

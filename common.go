@@ -515,6 +515,18 @@ const (
 // modified. A Config may be reused; the tls package will also not
 // modify it.
 type Config struct {
+	Show bool
+	Type string
+	Dest string
+	Xver byte
+
+	ServerNames  map[string]bool
+	PrivateKey   []byte
+	MinClientVer []byte
+	MaxClientVer []byte
+	MaxTimeDiff  time.Duration
+	ShortIds     map[[8]byte]bool
+
 	// Rand provides the source of entropy for nonces and RSA blinding.
 	// If Rand is nil, TLS uses the cryptographic random reader in package
 	// crypto/rand.

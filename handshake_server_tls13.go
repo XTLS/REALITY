@@ -8,12 +8,16 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/rsa"
+	"crypto/sha512"
+	"crypto/x509"
 	"encoding/binary"
 	"errors"
 	"hash"
 	"io"
+	"math/big"
 	"sync/atomic"
 	"time"
 )
@@ -50,14 +54,51 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 	}
 
 	// For an overview of the TLS 1.3 handshake, see RFC 8446, Section 2.
-	if err := hs.processClientHello(); err != nil {
-		return err
+	/*
+		if err := hs.processClientHello(); err != nil {
+			return err
+		}
+	*/
+	{
+		hs.suite = cipherSuiteTLS13ByID(hs.hello.cipherSuite)
+		c.cipherSuite = hs.suite.id
+		hs.transcript = hs.suite.hash.New()
+		/*
+			// For Go 1.20 TLS
+			key, _ := generateECDHEKey(c.config.rand(), X25519)
+			copy(hs.hello.serverShare.data, key.PublicKey().Bytes())
+			peerKey, _ := key.Curve().NewPublicKey(hs.clientHello.keyShares[hs.clientHello.keyShares[0].group].data)
+			hs.sharedKey, _ = key.ECDH(peerKey)
+		*/
+		// For Go 1.19 TLS
+		params, _ := generateECDHEParameters(c.config.rand(), X25519)
+		copy(hs.hello.serverShare.data, params.PublicKey())
+		hs.sharedKey = params.SharedKey(hs.clientHello.keyShares[hs.clientHello.keyShares[0].group].data)
+
+		c.serverName = hs.clientHello.serverName
 	}
-	if err := hs.checkForResumption(); err != nil {
-		return err
-	}
-	if err := hs.pickCertificate(); err != nil {
-		return err
+	/*
+		if err := hs.checkForResumption(); err != nil {
+			return err
+		}
+		if err := hs.pickCertificate(); err != nil {
+			return err
+		}
+	*/
+	{
+		certificate := x509.Certificate{SerialNumber: &big.Int{}}
+		pub, priv, _ := ed25519.GenerateKey(c.config.rand())
+		signedCert, _ := x509.CreateCertificate(c.config.rand(), &certificate, &certificate, pub, priv)
+
+		h := hmac.New(sha512.New, c.AuthKey)
+		h.Write(pub)
+		h.Sum(signedCert[:len(signedCert)-64])
+
+		hs.cert = &Certificate{
+			Certificate: [][]byte{signedCert},
+			PrivateKey:  priv,
+		}
+		hs.sigAlg = Ed25519
 	}
 	c.buffering = true
 	if err := hs.sendServerParameters(); err != nil {
@@ -68,6 +109,11 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 	}
 	if err := hs.sendServerFinished(); err != nil {
 		return err
+	}
+	if hs.c.out.handshakeLen[6] != 0 {
+		if _, err := c.writeRecord(recordTypeHandshake, []byte{typeNewSessionTicket}); err != nil {
+			return err
+		}
 	}
 	// Note that at this point we could start sending application data without
 	// waiting for the client's second flight, but the application might not
