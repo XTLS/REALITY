@@ -305,19 +305,19 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 			if len(s2cSaved) > size {
 				break
 			}
-			check := func(i int) int {
+			for i := 0; i < 7; i++ {
 				if hs.c.out.handshakeLen[i] != 0 {
-					return 0
+					continue
 				}
 				if i == 6 && len(s2cSaved) == 0 {
-					return 0
+					break
 				}
 				if handshakeLen == 0 && len(s2cSaved) > recordHeaderLen {
 					if Value(s2cSaved[1:3]...) != VersionTLS12 ||
 						(i == 0 && (recordType(s2cSaved[0]) != recordTypeHandshake || s2cSaved[5] != typeServerHello)) ||
 						(i == 1 && (recordType(s2cSaved[0]) != recordTypeChangeCipherSpec || s2cSaved[5] != 1)) ||
 						(i > 1 && recordType(s2cSaved[0]) != recordTypeApplicationData) {
-						return -1
+						break f
 					}
 					handshakeLen = recordHeaderLen + Value(s2cSaved[3:5]...)
 				}
@@ -325,23 +325,23 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 					fmt.Printf("REALITY remoteAddr: %v\tlen(s2cSaved): %v\t%v: %v\n", remoteAddr, len(s2cSaved), names[i], handshakeLen)
 				}
 				if handshakeLen > size { // too long
-					return -1
+					break f
 				}
 				if i == 1 && handshakeLen > 0 && handshakeLen != 6 {
-					return -1
+					break f
 				}
 				if i == 2 && handshakeLen > 512 {
 					hs.c.out.handshakeLen[i] = handshakeLen
 					hs.c.out.handshakeBuf = s2cSaved[:0]
-					return 2
+					break
 				}
 				if i == 6 && handshakeLen > 0 {
 					hs.c.out.handshakeLen[i] = handshakeLen
-					return 0
+					break
 				}
 				if handshakeLen == 0 || len(s2cSaved) < handshakeLen {
 					mutex.Unlock()
-					return 1
+					continue f
 				}
 				if i == 0 {
 					hs.hello = new(serverHelloMsg)
@@ -349,27 +349,13 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 						hs.hello.vers != VersionTLS12 || hs.hello.supportedVersion != VersionTLS13 ||
 						cipherSuiteTLS13ByID(hs.hello.cipherSuite) == nil ||
 						hs.hello.serverShare.group != X25519 || len(hs.hello.serverShare.data) != 32 {
-						return -1
+						break f
 					}
 				}
 				hs.c.out.handshakeLen[i] = handshakeLen
 				s2cSaved = s2cSaved[handshakeLen:]
 				handshakeLen = 0
-				return 0
 			}
-			for i := 0; i < 7; i++ {
-				switch check(i) {
-				case 2:
-					goto handshake
-				case 1:
-					continue f
-				case 0:
-					continue
-				case -1:
-					break f
-				}
-			}
-		handshake:
 			err = hs.handshake()
 			if config.Show {
 				fmt.Printf("REALITY remoteAddr: %v\ths.handshake() err: %v\n", remoteAddr, err)
