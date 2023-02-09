@@ -253,10 +253,10 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 				hs.clientHello.keyShares[0].group = CurveID(i)
 				break
 			}
+			if config.Show {
+				fmt.Printf("REALITY remoteAddr: %v\ths.c.conn == underlying: %v\n", remoteAddr, hs.c.conn == underlying)
+			}
 			if hs.c.conn == underlying {
-				if config.Show {
-					fmt.Printf("REALITY remoteAddr: %v\ths.c.conn: underlying\n", remoteAddr)
-				}
 				done = true
 			}
 			break
