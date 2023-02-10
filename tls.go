@@ -93,7 +93,7 @@ func (c *ReaderConn) SetWriteDeadline(t time.Time) error {
 var (
 	size  = 8192
 	empty = make([]byte, size)
-	names = [7]string{
+	types = [7]string{
 		"Server Hello",
 		"Change Cipher Spec",
 		"Encrypted Extensions",
@@ -305,7 +305,7 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 			if len(s2cSaved) > size {
 				break
 			}
-			for i := 0; i < 7; i++ {
+			for i, t := range types {
 				if hs.c.out.handshakeLen[i] != 0 {
 					continue
 				}
@@ -322,7 +322,7 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 					handshakeLen = recordHeaderLen + Value(s2cSaved[3:5]...)
 				}
 				if config.Show {
-					fmt.Printf("REALITY remoteAddr: %v\tlen(s2cSaved): %v\t%v: %v\n", remoteAddr, len(s2cSaved), names[i], handshakeLen)
+					fmt.Printf("REALITY remoteAddr: %v\tlen(s2cSaved): %v\t%v: %v\n", remoteAddr, len(s2cSaved), t, handshakeLen)
 				}
 				if handshakeLen > size { // too long
 					break f
