@@ -160,16 +160,15 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 		for {
 			runtime.Gosched()
 			n, err := conn.Read(buf)
-			mutex.Lock()
-			if err != nil && err != io.EOF {
-				target.Close()
-				done = true
-				break
-			}
 			if n == 0 {
-				mutex.Unlock()
+				if err != nil {
+					target.Close()
+					waitGroup.Done()
+					return
+				}
 				continue
 			}
+			mutex.Lock()
 			c2sSaved = append(c2sSaved, buf[:n]...)
 			if _, err = target.Write(buf[:n]); err != nil {
 				done = true
@@ -279,16 +278,15 @@ func Server(conn net.Conn, config *Config) (*Conn, error) {
 		for {
 			runtime.Gosched()
 			n, err := target.Read(buf)
-			mutex.Lock()
-			if err != nil && err != io.EOF {
-				conn.Close()
-				done = true
-				break
-			}
 			if n == 0 {
-				mutex.Unlock()
+				if err != nil {
+					conn.Close()
+					waitGroup.Done()
+					return
+				}
 				continue
 			}
+			mutex.Lock()
 			s2cSaved = append(s2cSaved, buf[:n]...)
 			if hs.c == nil || hs.c.conn != underlying {
 				if _, err = conn.Write(buf[:n]); err != nil {
