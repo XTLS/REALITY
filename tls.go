@@ -115,13 +115,22 @@ func Value(vals ...byte) (value int) {
 // using conn as the underlying transport.
 // The configuration config must be non-nil and must include
 // at least one certificate or else set GetCertificate.
-func Server(conn net.Conn, config *Config) (*Conn, error) {
+func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	remoteAddr := conn.RemoteAddr().String()
 	if config.Show {
 		fmt.Printf("REALITY remoteAddr: %v\n", remoteAddr)
 	}
 
-	target, err := net.Dial(config.Type, config.Dest)
+	var (
+		target net.Conn
+		err    error
+	)
+	if config.DialContext == nil {
+		var dialer net.Dialer
+		target, err = dialer.DialContext(ctx, config.Type, config.Dest)
+	} else {
+		target, err = config.DialContext(ctx, config.Type, config.Dest)
+	}
 	if err != nil {
 		conn.Close()
 		return nil, errors.New("REALITY: failed to dial dest: " + err.Error())
@@ -421,7 +430,7 @@ func (l *listener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Server(c, l.config)
+	return Server(context.Background(), c, l.config)
 }
 
 // NewListener creates a Listener which accepts connections from an inner
