@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"runtime"
@@ -254,7 +255,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				}
 				if (config.MinClientVer == nil || Value(hs.c.ClientVer[:]...) >= Value(config.MinClientVer...)) &&
 					(config.MaxClientVer == nil || Value(hs.c.ClientVer[:]...) <= Value(config.MaxClientVer...)) &&
-					(config.MaxTimeDiff == 0 || time.Since(hs.c.ClientTime).Abs() <= config.MaxTimeDiff) &&
+					(config.MaxTimeDiff == 0 || math.Abs(float64(time.Since(hs.c.ClientTime).Milliseconds())) <= float64(config.MaxTimeDiff.Milliseconds())) &&
 					(config.ShortIds[hs.c.ClientShortId]) {
 					hs.c.conn = underlying
 				}
