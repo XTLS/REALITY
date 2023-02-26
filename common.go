@@ -515,6 +515,8 @@ const (
 // modified. A Config may be reused; the tls package will also not
 // modify it.
 type Config struct {
+	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
+
 	Show bool
 	Type string
 	Dest string
