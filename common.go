@@ -515,6 +515,8 @@ const (
 // modified. A Config may be reused; the tls package will also not
 // modify it.
 type Config struct {
+	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
+
 	Show bool
 	Type string
 	Dest string
@@ -526,7 +528,6 @@ type Config struct {
 	MaxClientVer []byte
 	MaxTimeDiff  time.Duration
 	ShortIds     map[[8]byte]bool
-	DialContext  func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	// Rand provides the source of entropy for nonces and RSA blinding.
 	// If Rand is nil, TLS uses the cryptographic random reader in package
