@@ -194,7 +194,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				break
 			}
 			readerConn := &ReaderConn{
-				Conn:   underlying,
+				Conn:   conn,
 				Reader: bytes.NewReader(c2sSaved),
 			}
 			hs.c = &Conn{
@@ -247,15 +247,15 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					(config.MaxClientVer == nil || Value(hs.c.ClientVer[:]...) <= Value(config.MaxClientVer...)) &&
 					(config.MaxTimeDiff == 0 || time.Since(hs.c.ClientTime).Abs() <= config.MaxTimeDiff) &&
 					(config.ShortIds[hs.c.ClientShortId]) {
-					hs.c.conn = underlying
+					hs.c.conn = conn
 				}
 				hs.clientHello.keyShares[0].group = CurveID(i)
 				break
 			}
 			if config.Show {
-				fmt.Printf("REALITY remoteAddr: %v\ths.c.conn == underlying: %v\n", remoteAddr, hs.c.conn == underlying)
+				fmt.Printf("REALITY remoteAddr: %v\ths.c.conn == conn: %v\n", remoteAddr, hs.c.conn == conn)
 			}
-			if hs.c.conn == underlying {
+			if hs.c.conn == conn {
 				done = true
 			}
 			break
@@ -288,7 +288,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			}
 			mutex.Lock()
 			s2cSaved = append(s2cSaved, buf[:n]...)
-			if hs.c == nil || hs.c.conn != underlying {
+			if hs.c == nil || hs.c.conn != conn {
 				if _, err = conn.Write(buf[:n]); err != nil {
 					done = true
 					break
