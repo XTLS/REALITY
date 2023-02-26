@@ -27,7 +27,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"os"
 	"runtime"
@@ -122,16 +121,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		fmt.Printf("REALITY remoteAddr: %v\n", remoteAddr)
 	}
 
-	var (
-		target net.Conn
-		err    error
-	)
-	if config.DialContext == nil {
-		var dialer net.Dialer
-		target, err = dialer.DialContext(ctx, config.Type, config.Dest)
-	} else {
-		target, err = config.DialContext(ctx, config.Type, config.Dest)
-	}
+	target, err := config.DialContext(ctx, config.Type, config.Dest)
 	if err != nil {
 		conn.Close()
 		return nil, errors.New("REALITY: failed to dial dest: " + err.Error())
@@ -150,7 +140,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		underlying = pc.Raw()
 	}
 
-	hs := serverHandshakeStateTLS13{ctx: context.TODO()}
+	hs := serverHandshakeStateTLS13{ctx: context.Background()}
 
 	c2sSaved := make([]byte, 0, size)
 	s2cSaved := make([]byte, 0, size)
@@ -211,7 +201,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				conn:   readerConn,
 				config: config,
 			}
-			hs.clientHello, err = hs.c.readClientHello(context.TODO())
+			hs.clientHello, err = hs.c.readClientHello(context.Background())
 			if err != nil || readerConn.Reader.Len() > 0 || readerConn.Written > 0 || readerConn.Closed {
 				break
 			}
@@ -255,7 +245,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				}
 				if (config.MinClientVer == nil || Value(hs.c.ClientVer[:]...) >= Value(config.MinClientVer...)) &&
 					(config.MaxClientVer == nil || Value(hs.c.ClientVer[:]...) <= Value(config.MaxClientVer...)) &&
-					(config.MaxTimeDiff == 0 || math.Abs(float64(time.Since(hs.c.ClientTime).Milliseconds())) <= float64(config.MaxTimeDiff.Milliseconds())) &&
+					(config.MaxTimeDiff == 0 || time.Since(hs.c.ClientTime).Abs() <= config.MaxTimeDiff) &&
 					(config.ShortIds[hs.c.ClientShortId]) {
 					hs.c.conn = underlying
 				}
