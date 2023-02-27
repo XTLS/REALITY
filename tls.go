@@ -412,16 +412,24 @@ func Client(conn net.Conn, config *Config) *Conn {
 type listener struct {
 	net.Listener
 	config *Config
+	conns  chan net.Conn
+	err    error
 }
 
 // Accept waits for and returns the next incoming TLS connection.
 // The returned connection is of type *Conn.
 func (l *listener) Accept() (net.Conn, error) {
-	c, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
+	/*
+		c, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		return Server(c, l.config), nil
+	*/
+	if c, ok := <-l.conns; ok {
+		return c, nil
 	}
-	return Server(context.Background(), c, l.config)
+	return nil, l.err
 }
 
 // NewListener creates a Listener which accepts connections from an inner
@@ -432,6 +440,25 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 	l := new(listener)
 	l.Listener = inner
 	l.config = config
+	{
+		l.conns = make(chan net.Conn)
+		go func() {
+			for {
+				c, err := l.Listener.Accept()
+				if err != nil {
+					l.err = err
+					close(l.conns)
+					return
+				}
+				go func() {
+					c, err = Server(context.Background(), c, l.config)
+					if err == nil {
+						l.conns <- c
+					}
+				}()
+			}
+		}()
+	}
 	return l
 }
 
