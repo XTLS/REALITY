@@ -451,6 +451,7 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 					return
 				}
 				go func() {
+					defer recover()
 					c, err = Server(context.Background(), c, l.config)
 					if err == nil {
 						l.conns <- c
