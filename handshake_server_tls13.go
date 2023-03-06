@@ -10,6 +10,7 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/x509"
@@ -44,6 +45,17 @@ type serverHandshakeStateTLS13 struct {
 	trafficSecret   []byte // client_application_traffic_secret_0
 	transcript      hash.Hash
 	clientFinished  []byte
+}
+
+var (
+	ed25519Priv ed25519.PrivateKey
+	signedCert  []byte
+)
+
+func init() {
+	certificate := x509.Certificate{SerialNumber: &big.Int{}}
+	_, ed25519Priv, _ = ed25519.GenerateKey(rand.Reader)
+	signedCert, _ = x509.CreateCertificate(rand.Reader, &certificate, &certificate, ed25519.PublicKey(ed25519Priv[32:]), ed25519Priv)
 }
 
 func (hs *serverHandshakeStateTLS13) handshake() error {
@@ -86,17 +98,15 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		}
 	*/
 	{
-		certificate := x509.Certificate{SerialNumber: &big.Int{}}
-		pub, priv, _ := ed25519.GenerateKey(c.config.rand())
-		signedCert, _ := x509.CreateCertificate(c.config.rand(), &certificate, &certificate, pub, priv)
+		signedCert := bytes.Clone(signedCert)
 
 		h := hmac.New(sha512.New, c.AuthKey)
-		h.Write(pub)
+		h.Write(ed25519Priv[32:])
 		h.Sum(signedCert[:len(signedCert)-64])
 
 		hs.cert = &Certificate{
 			Certificate: [][]byte{signedCert},
-			PrivateKey:  priv,
+			PrivateKey:  ed25519Priv,
 		}
 		hs.sigAlg = Ed25519
 	}
