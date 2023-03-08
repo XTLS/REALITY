@@ -265,7 +265,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		} else {
 			copying = true
 			mutex.Unlock()
-			io.Copy(target, underlying)
+			io.CopyBuffer(target, underlying, buf)
 		}
 		waitGroup.Done()
 	}()
@@ -330,7 +330,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				}
 				if i == 2 && handshakeLen > 512 {
 					hs.c.out.handshakeLen[i] = handshakeLen
-					hs.c.out.handshakeBuf = s2cSaved[:0]
+					hs.c.out.handshakeBuf = buf[:0]
 					break
 				}
 				if i == 6 && handshakeLen > 0 {
@@ -368,7 +368,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		} else {
 			copying = true
 			mutex.Unlock()
-			io.Copy(underlying, target)
+			io.CopyBuffer(underlying, target, buf)
 		}
 		waitGroup.Done()
 	}()
