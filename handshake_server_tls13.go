@@ -131,6 +131,8 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 	if _, err := c.flush(); err != nil {
 		return err
 	}
+	return nil
+
 	if err := hs.readClientCertificate(); err != nil {
 		return err
 	}
