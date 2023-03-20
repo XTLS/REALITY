@@ -220,8 +220,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					break
 				}
 				if config.Show {
-					fmt.Printf("REALITY remoteAddr: %v\ths.clientHello.sessionId: %v\n", remoteAddr, hs.clientHello.sessionId)
-					fmt.Printf("REALITY remoteAddr: %v\ths.c.AuthKey: %v\n", remoteAddr, hs.c.AuthKey)
+					fmt.Printf("REALITY remoteAddr: %v\ths.c.AuthKey[:16]: %v\n", remoteAddr, hs.c.AuthKey[:16])
 				}
 				block, _ := aes.NewCipher(hs.c.AuthKey)
 				aead, _ := cipher.NewGCM(block)
