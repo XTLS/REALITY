@@ -203,11 +203,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				}
 				copy(hs.clientHello.sessionId, ciphertext)
 				copy(hs.c.ClientVer[:], plainText)
+				hs.c.ClientTime = time.Unix(int64(binary.BigEndian.Uint32(plainText[4:])), 0)
 				copy(hs.c.ClientShortId[:], plainText[8:])
-				plainText[0] = 0
-				plainText[1] = 0
-				plainText[2] = 0
-				hs.c.ClientTime = time.Unix(int64(binary.BigEndian.Uint64(plainText)), 0)
 				if config.Show {
 					fmt.Printf("REALITY remoteAddr: %v\ths.c.ClientVer: %v\n", remoteAddr, hs.c.ClientVer)
 					fmt.Printf("REALITY remoteAddr: %v\ths.c.ClientTime: %v\n", remoteAddr, hs.c.ClientTime)
