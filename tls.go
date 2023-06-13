@@ -200,7 +200,6 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if config.Show {
 					fmt.Printf("REALITY remoteAddr: %v\ths.c.AuthKey[:16]: %v\tAEAD: %T\n", remoteAddr, hs.c.AuthKey[:16], aead)
 				}
-
 				ciphertext := make([]byte, 32)
 				plainText := make([]byte, 32)
 				copy(ciphertext, hs.clientHello.sessionId)
