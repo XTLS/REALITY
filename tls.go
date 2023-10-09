@@ -32,7 +32,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pires/go-proxyproto"
@@ -302,7 +301,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if handshakeLen-len(s2cSaved) > 0 {
 					io.ReadFull(target, buf[:handshakeLen-len(s2cSaved)])
 				}
-				if n, err := target.Read(buf); !hs.c.handshakeComplete() {
+				if n, err := target.Read(buf); !hs.c.isHandshakeComplete.Load() {
 					if err != nil {
 						conn.Close()
 					}
@@ -318,7 +317,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if err != nil {
 				break
 			}
-			atomic.StoreUint32(&hs.c.handshakeStatus, 1)
+			hs.c.isHandshakeComplete.Store(true)
 			break
 		}
 		mutex.Unlock()
@@ -339,9 +338,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	waitGroup.Wait()
 	target.Close()
 	if config.Show {
-		fmt.Printf("REALITY remoteAddr: %v\ths.c.handshakeStatus: %v\n", remoteAddr, atomic.LoadUint32(&hs.c.handshakeStatus))
+		fmt.Printf("REALITY remoteAddr: %v\ths.c.handshakeStatus: %v\n", remoteAddr, hs.c.isHandshakeComplete.Load())
 	}
-	if atomic.LoadUint32(&hs.c.handshakeStatus) == 1 {
+	if hs.c.isHandshakeComplete.Load() {
 		return hs.c, nil
 	}
 	conn.Close()

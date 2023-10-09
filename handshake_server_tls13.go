@@ -19,7 +19,6 @@ import (
 	"hash"
 	"io"
 	"math/big"
-	"sync/atomic"
 	"time"
 )
 
@@ -75,17 +74,11 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		hs.suite = cipherSuiteTLS13ByID(hs.hello.cipherSuite)
 		c.cipherSuite = hs.suite.id
 		hs.transcript = hs.suite.hash.New()
-		/*
-			// For Go 1.20 TLS
-			key, _ := generateECDHEKey(c.config.rand(), X25519)
-			copy(hs.hello.serverShare.data, key.PublicKey().Bytes())
-			peerKey, _ := key.Curve().NewPublicKey(hs.clientHello.keyShares[hs.clientHello.keyShares[0].group].data)
-			hs.sharedKey, _ = key.ECDH(peerKey)
-		*/
-		// For Go 1.19 TLS
-		params, _ := generateECDHEParameters(c.config.rand(), X25519)
-		copy(hs.hello.serverShare.data, params.PublicKey())
-		hs.sharedKey = params.SharedKey(hs.clientHello.keyShares[hs.clientHello.keyShares[0].group].data)
+		
+		key, _ := generateECDHEKey(c.config.rand(), X25519)
+		copy(hs.hello.serverShare.data, key.PublicKey().Bytes())
+		peerKey, _ := key.Curve().NewPublicKey(hs.clientHello.keyShares[hs.clientHello.keyShares[0].group].data)
+		hs.sharedKey, _ = key.ECDH(peerKey)
 
 		c.serverName = hs.clientHello.serverName
 	}
