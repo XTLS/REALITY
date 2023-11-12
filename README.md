@@ -2,7 +2,7 @@
 
 ### THE NEXT FUTURE
 
-Server side implementation of REALITY protocol, a fork of package tls in Go 1.20.  
+Server side implementation of REALITY protocol, a fork of package tls in latest [Go](https://github.com/golang/go/commits/master/src/crypto/tls).
 For client side, please follow https://github.com/XTLS/Xray-core/blob/main/transport/internet/reality/reality.go.  
 
 TODO List: TODO
