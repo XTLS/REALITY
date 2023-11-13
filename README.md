@@ -111,3 +111,7 @@ REALITY 客户端可以完美区分临时可信证书、真证书、无效证书
 1. 收到临时可信证书时，连接可用，一切如常
 2. 收到真证书时，进入爬虫模式
 3. 收到无效证书时，TLS alert，断开连接
+
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/XTLS/REALITY.svg)](https://starchart.cc/XTLS/REALITY)
