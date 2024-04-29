@@ -208,6 +208,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		}
 		mutex.Unlock()
 		if hs.c.conn != conn {
+			if config.Show {
+				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
+			}
 			io.Copy(target, underlying)
 		}
 		waitGroup.Done()
