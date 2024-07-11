@@ -334,10 +334,10 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			}
 			conn.Write(s2cSaved)
 			io.Copy(underlying, target)
-			// Here is reality relay connections
-			// client ---conn--- server ---target--- dest
-			// close `conn` once dest closes `target`
-			conn.Close()
+			// Here is bidirectional direct forwarding:
+			// client ---underlying--- server ---target--- dest
+			// Close `underlying` once dest closes `target`
+			underlying.Close()
 		}
 		waitGroup.Done()
 	}()
