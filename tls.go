@@ -336,7 +336,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			io.Copy(underlying, target)
 			// Here is reality relay connections
 			// client ---conn--- server ---target--- dest
-			// close `conn` if dest close `target`
+			// close `conn` once dest closes `target`
 			conn.Close()
 		}
 		waitGroup.Done()
