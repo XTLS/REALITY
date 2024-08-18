@@ -802,10 +802,7 @@ func (hs *serverHandshakeState) sendSessionTicket() error {
 	c := hs.c
 	m := new(newSessionTicketMsg)
 
-	state, err := c.sessionState()
-	if err != nil {
-		return err
-	}
+	state := c.sessionState()
 	state.secret = hs.masterSecret
 	if hs.sessionState != nil {
 		// If this is re-wrapping an old key, then keep
@@ -813,6 +810,7 @@ func (hs *serverHandshakeState) sendSessionTicket() error {
 		state.createdAt = hs.sessionState.createdAt
 	}
 	if c.config.WrapSession != nil {
+		var err error
 		m.ticket, err = c.config.WrapSession(c.connectionStateLocked(), state)
 		if err != nil {
 			return err
