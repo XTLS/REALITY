@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"hash"
 	"runtime"
-	"slices"
 
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/sys/cpu"
@@ -351,30 +350,6 @@ var rsaKexCiphers = map[uint16]bool{
 var tdesCiphers = map[uint16]bool{
 	TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA: true,
 	TLS_RSA_WITH_3DES_EDE_CBC_SHA:       true,
-}
-
-func defaultCipherSuites() []uint16 {
-	suites := slices.Clone(cipherSuitesPreferenceOrder)
-	return slices.DeleteFunc(suites, func(c uint16) bool {
-		return disabledCipherSuites[c] ||
-			rsaKexCiphers[c] ||
-			tdesCiphers[c]
-	})
-}
-
-// defaultCipherSuitesTLS13 is also the preference order, since there are no
-// disabled by default TLS 1.3 cipher suites. The same AES vs ChaCha20 logic as
-// cipherSuitesPreferenceOrder applies.
-var defaultCipherSuitesTLS13 = []uint16{
-	TLS_AES_128_GCM_SHA256,
-	TLS_AES_256_GCM_SHA384,
-	TLS_CHACHA20_POLY1305_SHA256,
-}
-
-var defaultCipherSuitesTLS13NoAES = []uint16{
-	TLS_CHACHA20_POLY1305_SHA256,
-	TLS_AES_128_GCM_SHA256,
-	TLS_AES_256_GCM_SHA384,
 }
 
 var (
