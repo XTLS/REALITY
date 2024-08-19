@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"hash"
 	"runtime"
+	"slices"
 
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/sys/cpu"
@@ -345,21 +346,20 @@ var rsaKexCiphers = map[uint16]bool{
 	TLS_RSA_WITH_AES_256_GCM_SHA384: true,
 }
 
-var defaultCipherSuites []uint16
-var defaultCipherSuitesWithRSAKex []uint16
+// tdesCiphers contains 3DES ciphers,
+// which we also disable by default unless a GODEBUG is set.
+var tdesCiphers = map[uint16]bool{
+	TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA: true,
+	TLS_RSA_WITH_3DES_EDE_CBC_SHA:       true,
+}
 
-func init() {
-	defaultCipherSuites = make([]uint16, 0, len(cipherSuitesPreferenceOrder))
-	defaultCipherSuitesWithRSAKex = make([]uint16, 0, len(cipherSuitesPreferenceOrder))
-	for _, c := range cipherSuitesPreferenceOrder {
-		if disabledCipherSuites[c] {
-			continue
-		}
-		if !rsaKexCiphers[c] {
-			defaultCipherSuites = append(defaultCipherSuites, c)
-		}
-		defaultCipherSuitesWithRSAKex = append(defaultCipherSuitesWithRSAKex, c)
-	}
+func defaultCipherSuites() []uint16 {
+	suites := slices.Clone(cipherSuitesPreferenceOrder)
+	return slices.DeleteFunc(suites, func(c uint16) bool {
+		return disabledCipherSuites[c] ||
+			rsaKexCiphers[c] ||
+			tdesCiphers[c]
+	})
 }
 
 // defaultCipherSuitesTLS13 is also the preference order, since there are no
