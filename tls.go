@@ -186,7 +186,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				plainText := make([]byte, 32)
 				copy(ciphertext, hs.clientHello.sessionId)
 				copy(hs.clientHello.sessionId, plainText) // hs.clientHello.sessionId points to hs.clientHello.raw[39:]
-				if _, err = aead.Open(plainText[:0], hs.clientHello.random[20:], ciphertext, hs.clientHello.raw); err != nil {
+				if _, err = aead.Open(plainText[:0], hs.clientHello.random[20:], ciphertext, hs.clientHello.original); err != nil {
 					break
 				}
 				copy(hs.clientHello.sessionId, ciphertext)
