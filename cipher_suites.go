@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"hash"
 	"runtime"
+	_ "unsafe" // for linkname
 
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/sys/cpu"
@@ -196,6 +197,15 @@ type cipherSuiteTLS13 struct {
 	hash   crypto.Hash
 }
 
+// cipherSuitesTLS13 should be an internal detail,
+// but widely used packages access it using linkname.
+// Notable members of the hall of shame include:
+//   - github.com/quic-go/quic-go
+//
+// Do not remove or change the type signature.
+// See go.dev/issue/67401.
+//
+//go:linkname cipherSuitesTLS13
 var cipherSuitesTLS13 = []*cipherSuiteTLS13{ // TODO: replace with a map.
 	{TLS_AES_128_GCM_SHA256, 16, aeadAESGCMTLS13, crypto.SHA256},
 	{TLS_CHACHA20_POLY1305_SHA256, 32, aeadChaCha20Poly1305, crypto.SHA256},
