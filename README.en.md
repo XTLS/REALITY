@@ -28,7 +28,7 @@ TODO List: TODO
                 "decryption": "none"
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw", // Use tcp before v24.9.30
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // Optional, if true, output debugging information
@@ -84,7 +84,7 @@ The next main goal of REALITY is "**pre-built mode**", that is, to collect and b
                 ]
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw", // Use tcp before v24.9.30
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // Optional, if true, output debugging information

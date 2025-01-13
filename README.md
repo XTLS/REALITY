@@ -28,7 +28,7 @@ TODO List: TODO
                 "decryption": "none"
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw", // v24.9.30之前版本应当使用tcp
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // 选填，若为 true，输出调试信息
@@ -84,7 +84,7 @@ REALITY 的下一个主要目标是“**预先构建模式**”，即提前采�
                 ]
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw", // v24.9.30之前版本应当使用tcp
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // 选填，若为 true，输出调试信息
