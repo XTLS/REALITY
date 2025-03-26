@@ -50,6 +50,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/pires/go-proxyproto"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
@@ -98,6 +99,19 @@ func (c *MirrorConn) SetReadDeadline(t time.Time) error {
 
 func (c *MirrorConn) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+type RatelimitedConn struct {
+	net.Conn
+	Bucket *ratelimit.Bucket
+}
+
+func (c *RatelimitedConn) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	if n != 0 {
+		c.Bucket.Wait(int64(n))
+	}
+	return n, err
 }
 
 var (
@@ -228,7 +242,15 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if config.Show && hs.clientHello != nil {
 				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
 			}
-			io.Copy(target, underlying)
+			if config.LimitUploadRate == 0 || config.LimitUploadBrust == 0 {
+				io.Copy(target, underlying)
+			} else {
+				// Limit upload speed for fallback connection
+				io.Copy(target, &RatelimitedConn{
+					Conn:   underlying,
+					Bucket: ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
+				})
+			}
 		}
 		waitGroup.Done()
 	}()
@@ -359,12 +381,28 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if hs.c.conn == conn { // if we processed the Client Hello successfully but the target did not
 				waitGroup.Add(1)
 				go func() {
-					io.Copy(target, underlying)
+					if config.LimitUploadRate == 0 || config.LimitUploadBrust == 0 {
+						io.Copy(target, underlying)
+					} else {
+						// Limit upload speed for fallback connection (handshake ok but hello failed)
+						io.Copy(target, &RatelimitedConn{
+							Conn:   underlying,
+							Bucket: ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
+						})
+					}
 					waitGroup.Done()
 				}()
 			}
 			conn.Write(s2cSaved)
-			io.Copy(underlying, target)
+			if config.LimitDownloadRate == 0 || config.LimitDownloadBrust == 0 {
+				io.Copy(underlying, target)
+			} else {
+				// Limit download speed for fallback connection
+				io.Copy(underlying, &RatelimitedConn{
+					Conn:   target,
+					Bucket: ratelimit.NewBucketWithRate(config.LimitDownloadRate, config.LimitDownloadBrust),
+				})
+			}
 			// Here is bidirectional direct forwarding:
 			// client ---underlying--- server ---target--- dest
 			// Call `underlying.CloseWrite()` once `io.Copy()` returned

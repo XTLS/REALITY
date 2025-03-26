@@ -556,6 +556,11 @@ type Config struct {
 	MaxTimeDiff  time.Duration
 	ShortIds     map[[8]byte]bool
 
+	LimitUploadRate    float64
+	LimitUploadBrust   int64
+	LimitDownloadRate  float64
+	LimitDownloadBrust int64
+
 	// Rand provides the source of entropy for nonces and RSA blinding.
 	// If Rand is nil, TLS uses the cryptographic random reader in package
 	// crypto/rand.
@@ -971,6 +976,10 @@ func (c *Config) Clone() *Config {
 		MaxClientVer:                        c.MaxClientVer,
 		MaxTimeDiff:                         c.MaxTimeDiff,
 		ShortIds:                            c.ShortIds,
+		LimitUploadRate:                     c.LimitUploadRate,
+		LimitUploadBrust:                    c.LimitUploadBrust,
+		LimitDownloadRate:                   c.LimitDownloadRate,
+		LimitDownloadBrust:                  c.LimitDownloadBrust,
 		Rand:                                c.Rand,
 		Time:                                c.Time,
 		Certificates:                        c.Certificates,
