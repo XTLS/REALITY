@@ -103,13 +103,18 @@ func (c *MirrorConn) SetWriteDeadline(t time.Time) error {
 
 type RatelimitedConn struct {
 	net.Conn
-	Bucket *ratelimit.Bucket
+	Bucket     *ratelimit.Bucket
+	LimitAfter int64
 }
 
 func (c *RatelimitedConn) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
 	if n != 0 {
-		c.Bucket.Wait(int64(n))
+		if c.LimitAfter <= 0 {
+			c.Bucket.Wait(int64(n))
+		} else {
+			c.LimitAfter -= int64(n)
+		}
 	}
 	return n, err
 }
@@ -247,8 +252,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			} else {
 				// Limit upload speed for fallback connection
 				io.Copy(target, &RatelimitedConn{
-					Conn:   underlying,
-					Bucket: ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
+					Conn:       underlying,
+					Bucket:     ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
+					LimitAfter: config.LimitUploadAfter - config.LimitUploadBrust,
 				})
 			}
 		}
@@ -386,8 +392,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					} else {
 						// Limit upload speed for fallback connection (handshake ok but hello failed)
 						io.Copy(target, &RatelimitedConn{
-							Conn:   underlying,
-							Bucket: ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
+							Conn:       underlying,
+							Bucket:     ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
+							LimitAfter: config.LimitUploadAfter - config.LimitUploadBrust,
 						})
 					}
 					waitGroup.Done()
@@ -399,8 +406,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			} else {
 				// Limit download speed for fallback connection
 				io.Copy(underlying, &RatelimitedConn{
-					Conn:   target,
-					Bucket: ratelimit.NewBucketWithRate(config.LimitDownloadRate, config.LimitDownloadBrust),
+					Conn:       target,
+					Bucket:     ratelimit.NewBucketWithRate(config.LimitDownloadRate, config.LimitDownloadBrust),
+					LimitAfter: config.LimitDownloadAfter - config.LimitDownloadBrust,
 				})
 			}
 			// Here is bidirectional direct forwarding:
