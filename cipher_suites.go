@@ -20,6 +20,9 @@ import (
 
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/sys/cpu"
+
+	"github.com/xtls/reality/gcm"
+	fipsaes "github.com/xtls/reality/aes"
 )
 
 // CipherSuite is a TLS cipher suite. Note that most functions in this package
@@ -509,7 +512,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
 	if err != nil {
 		panic(err)
 	}
-	aead, err := cipher.NewGCM(aes)
+	aead, err := gcm.NewGCMForTLS12(aes.(*fipsaes.Block))
 	if err != nil {
 		panic(err)
 	}
@@ -537,7 +540,7 @@ func aeadAESGCMTLS13(key, nonceMask []byte) aead {
 	if err != nil {
 		panic(err)
 	}
-	aead, err := cipher.NewGCM(aes)
+	aead, err := gcm.NewGCMForTLS13(aes.(*fipsaes.Block))
 	if err != nil {
 		panic(err)
 	}

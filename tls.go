@@ -38,6 +38,9 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
+
+	"github.com/xtls/reality/gcm"
+	fipsaes "github.com/xtls/reality/aes"
 )
 
 type CloseWriteConn interface {
@@ -175,7 +178,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				var aead cipher.AEAD
 				if aesgcmPreferred(hs.clientHello.cipherSuites) {
 					block, _ := aes.NewCipher(hs.c.AuthKey)
-					aead, _ = cipher.NewGCM(block)
+					aead, _ = gcm.NewGCMForTLS13(block.(*fipsaes.Block))
 				} else {
 					aead, _ = chacha20poly1305.New(hs.c.AuthKey)
 				}
