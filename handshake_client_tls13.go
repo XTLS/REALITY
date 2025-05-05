@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/hmac"
+    "crypto/mlkem"
 	"crypto/rsa"
 	"crypto/subtle"
 	"errors"
@@ -16,7 +17,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/xtls/reality/mlkem"
 	"github.com/xtls/reality/tls13"
 	"golang.org/x/crypto/hkdf"
 )

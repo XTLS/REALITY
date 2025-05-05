@@ -5,8 +5,6 @@
 package gcm
 
 import (
-	// "crypto/internal/fips140"
-	
 	"errors"
 
 	"github.com/xtls/reality/aes"

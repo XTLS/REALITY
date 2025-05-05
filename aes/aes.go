@@ -5,8 +5,6 @@
 package aes
 
 import (
-	// "crypto/internal/fips140"
-	// "crypto/internal/fips140/alias"
 	"strconv"
 
 	"github.com/xtls/reality/alias"

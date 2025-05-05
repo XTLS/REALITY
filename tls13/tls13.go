@@ -7,9 +7,9 @@
 package tls13
 
 import (
-	"github.com/xtls/reality/byteorder"
-    "github.com/xtls/reality/fips140"
-	"github.com/xtls/reality/hkdf"
+	"crypto/hkdf"
+	"encoding/binary"
+	"hash"
 )
 
 // We don't set the service indicator in this package but we delegate that to
@@ -17,7 +17,7 @@ import (
 // its own.
 
 // ExpandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.
-func ExpandLabel[H fips140.Hash](hash func() H, secret []byte, label string, context []byte, length int) []byte {
+func ExpandLabel[H hash.Hash](hash func() H, secret []byte, label string, context []byte, length int) []byte {
 	if len("tls13 ")+len(label) > 255 || len(context) > 255 {
 		// It should be impossible for this to panic: labels are fixed strings,
 		// and context is either a fixed-length computed hash, or parsed from a
@@ -30,23 +30,25 @@ func ExpandLabel[H fips140.Hash](hash func() H, secret []byte, label string, con
 		panic("tls13: label or context too long")
 	}
 	hkdfLabel := make([]byte, 0, 2+1+len("tls13 ")+len(label)+1+len(context))
-	hkdfLabel = byteorder.BEAppendUint16(hkdfLabel, uint16(length))
+	hkdfLabel = binary.BigEndian.AppendUint16(hkdfLabel, uint16(length))
 	hkdfLabel = append(hkdfLabel, byte(len("tls13 ")+len(label)))
 	hkdfLabel = append(hkdfLabel, "tls13 "...)
 	hkdfLabel = append(hkdfLabel, label...)
 	hkdfLabel = append(hkdfLabel, byte(len(context)))
 	hkdfLabel = append(hkdfLabel, context...)
-	return hkdf.Expand(hash, secret, string(hkdfLabel), length)
+	b, _ := hkdf.Expand(hash, secret, string(hkdfLabel), length)
+	return b
 }
 
-func extract[H fips140.Hash](hash func() H, newSecret, currentSecret []byte) []byte {
+func extract[H hash.Hash](hash func() H, newSecret, currentSecret []byte) []byte {
 	if newSecret == nil {
 		newSecret = make([]byte, hash().Size())
 	}
-	return hkdf.Extract(hash, newSecret, currentSecret)
+	b, _ := hkdf.Extract(hash, newSecret, currentSecret)
+	return b
 }
 
-func deriveSecret[H fips140.Hash](hash func() H, secret []byte, label string, transcript fips140.Hash) []byte {
+func deriveSecret[H hash.Hash](hash func() H, secret []byte, label string, transcript hash.Hash) []byte {
 	if transcript == nil {
 		transcript = hash()
 	}
@@ -67,13 +69,13 @@ const (
 
 type EarlySecret struct {
 	secret []byte
-	hash   func() fips140.Hash
+	hash   func() hash.Hash
 }
 
-func NewEarlySecret[H fips140.Hash](hash func() H, psk []byte) *EarlySecret {
+func NewEarlySecret[H hash.Hash](h func() H, psk []byte) *EarlySecret {
 	return &EarlySecret{
-		secret: extract(hash, psk, nil),
-		hash:   func() fips140.Hash { return hash() },
+		secret: extract(h, psk, nil),
+		hash:   func() hash.Hash { return h() },
 	}
 }
 
@@ -83,13 +85,13 @@ func (s *EarlySecret) ResumptionBinderKey() []byte {
 
 // ClientEarlyTrafficSecret derives the client_early_traffic_secret from the
 // early secret and the transcript up to the ClientHello.
-func (s *EarlySecret) ClientEarlyTrafficSecret(transcript fips140.Hash) []byte {
+func (s *EarlySecret) ClientEarlyTrafficSecret(transcript hash.Hash) []byte {
 	return deriveSecret(s.hash, s.secret, clientEarlyTrafficLabel, transcript)
 }
 
 type HandshakeSecret struct {
 	secret []byte
-	hash   func() fips140.Hash
+	hash   func() hash.Hash
 }
 
 func (s *EarlySecret) HandshakeSecret(sharedSecret []byte) *HandshakeSecret {
@@ -102,19 +104,19 @@ func (s *EarlySecret) HandshakeSecret(sharedSecret []byte) *HandshakeSecret {
 
 // ClientHandshakeTrafficSecret derives the client_handshake_traffic_secret from
 // the handshake secret and the transcript up to the ServerHello.
-func (s *HandshakeSecret) ClientHandshakeTrafficSecret(transcript fips140.Hash) []byte {
+func (s *HandshakeSecret) ClientHandshakeTrafficSecret(transcript hash.Hash) []byte {
 	return deriveSecret(s.hash, s.secret, clientHandshakeTrafficLabel, transcript)
 }
 
 // ServerHandshakeTrafficSecret derives the server_handshake_traffic_secret from
 // the handshake secret and the transcript up to the ServerHello.
-func (s *HandshakeSecret) ServerHandshakeTrafficSecret(transcript fips140.Hash) []byte {
+func (s *HandshakeSecret) ServerHandshakeTrafficSecret(transcript hash.Hash) []byte {
 	return deriveSecret(s.hash, s.secret, serverHandshakeTrafficLabel, transcript)
 }
 
 type MasterSecret struct {
 	secret []byte
-	hash   func() fips140.Hash
+	hash   func() hash.Hash
 }
 
 func (s *HandshakeSecret) MasterSecret() *MasterSecret {
@@ -127,30 +129,30 @@ func (s *HandshakeSecret) MasterSecret() *MasterSecret {
 
 // ClientApplicationTrafficSecret derives the client_application_traffic_secret_0
 // from the master secret and the transcript up to the server Finished.
-func (s *MasterSecret) ClientApplicationTrafficSecret(transcript fips140.Hash) []byte {
+func (s *MasterSecret) ClientApplicationTrafficSecret(transcript hash.Hash) []byte {
 	return deriveSecret(s.hash, s.secret, clientApplicationTrafficLabel, transcript)
 }
 
 // ServerApplicationTrafficSecret derives the server_application_traffic_secret_0
 // from the master secret and the transcript up to the server Finished.
-func (s *MasterSecret) ServerApplicationTrafficSecret(transcript fips140.Hash) []byte {
+func (s *MasterSecret) ServerApplicationTrafficSecret(transcript hash.Hash) []byte {
 	return deriveSecret(s.hash, s.secret, serverApplicationTrafficLabel, transcript)
 }
 
 // ResumptionMasterSecret derives the resumption_master_secret from the master secret
 // and the transcript up to the client Finished.
-func (s *MasterSecret) ResumptionMasterSecret(transcript fips140.Hash) []byte {
+func (s *MasterSecret) ResumptionMasterSecret(transcript hash.Hash) []byte {
 	return deriveSecret(s.hash, s.secret, resumptionLabel, transcript)
 }
 
 type ExporterMasterSecret struct {
 	secret []byte
-	hash   func() fips140.Hash
+	hash   func() hash.Hash
 }
 
 // ExporterMasterSecret derives the exporter_master_secret from the master secret
 // and the transcript up to the server Finished.
-func (s *MasterSecret) ExporterMasterSecret(transcript fips140.Hash) *ExporterMasterSecret {
+func (s *MasterSecret) ExporterMasterSecret(transcript hash.Hash) *ExporterMasterSecret {
 	return &ExporterMasterSecret{
 		secret: deriveSecret(s.hash, s.secret, exporterLabel, transcript),
 		hash:   s.hash,
@@ -159,7 +161,7 @@ func (s *MasterSecret) ExporterMasterSecret(transcript fips140.Hash) *ExporterMa
 
 // EarlyExporterMasterSecret derives the exporter_master_secret from the early secret
 // and the transcript up to the ClientHello.
-func (s *EarlySecret) EarlyExporterMasterSecret(transcript fips140.Hash) *ExporterMasterSecret {
+func (s *EarlySecret) EarlyExporterMasterSecret(transcript hash.Hash) *ExporterMasterSecret {
 	return &ExporterMasterSecret{
 		secret: deriveSecret(s.hash, s.secret, earlyExporterLabel, transcript),
 		hash:   s.hash,

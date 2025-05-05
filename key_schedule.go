@@ -7,12 +7,12 @@ package reality
 import (
 	"crypto/ecdh"
 	"crypto/hmac"
+	"crypto/mlkem"
+	"crypto/sha3"
 	"errors"
 	"hash"
 	"io"
 
-	"github.com/xtls/reality/mlkem"
-	"github.com/xtls/reality/sha3"
 	"github.com/xtls/reality/tls13"
 )
 
@@ -80,7 +80,7 @@ func kyberSharedSecret(c, K []byte) []byte {
 	// Package mlkem implements ML-KEM, which compared to Kyber removed a
 	// final hashing step. Compute SHAKE-256(K || SHA3-256(c), 32) to match Kyber.
 	// See https://words.filippo.io/mlkem768/#bonus-track-using-a-ml-kem-implementation-as-kyber-v3.
-	h := sha3.NewShake256()
+	h := sha3.NewSHAKE256()
 	h.Write(K)
 	ch := sha3.New256()
 	ch.Write(c)

@@ -5,14 +5,10 @@
 package gcm
 
 import (
-	// "crypto/internal/fips140"
-	// "crypto/internal/fips140/drbg"
-	
+	"encoding/binary"
 	"math"
 
 	"github.com/xtls/reality/aes"
-	// "github.com/xtls/reality/alias"
-	"github.com/xtls/reality/byteorder"
 )
 
 // SealWithRandomNonce encrypts plaintext to out, and writes a random nonce to
@@ -75,14 +71,14 @@ func (g *GCMWithCounterNonce) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("crypto/cipher: incorrect nonce length given to GCM")
 	}
 
-	counter := byteorder.BEUint64(nonce[len(nonce)-8:])
+	counter := binary.BigEndian.Uint64(nonce[len(nonce)-8:])
 	if !g.ready {
 		// The first invocation sets the fixed name encoding and start counter.
 		g.ready = true
 		g.start = counter
-		g.fixedName = byteorder.BEUint32(nonce[:4])
+		g.fixedName = binary.BigEndian.Uint32(nonce[:4])
 	}
-	if g.fixedName != byteorder.BEUint32(nonce[:4]) {
+	if g.fixedName != binary.BigEndian.Uint32(nonce[:4]) {
 		panic("crypto/cipher: incorrect module name given to GCMWithCounterNonce")
 	}
 	counter -= g.start
@@ -132,7 +128,7 @@ func (g *GCMForTLS12) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("crypto/cipher: incorrect nonce length given to GCM")
 	}
 
-	counter := byteorder.BEUint64(nonce[len(nonce)-8:])
+	counter := binary.BigEndian.Uint64(nonce[len(nonce)-8:])
 
 	// Ensure the counter is monotonically increasing.
 	if counter == math.MaxUint64 {
@@ -178,7 +174,7 @@ func (g *GCMForTLS13) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("crypto/cipher: incorrect nonce length given to GCM")
 	}
 
-	counter := byteorder.BEUint64(nonce[len(nonce)-8:])
+	counter := binary.BigEndian.Uint64(nonce[len(nonce)-8:])
 	if !g.ready {
 		// In the first call, the counter is zero, so we learn the XOR mask.
 		g.ready = true
@@ -232,7 +228,7 @@ func (g *GCMForSSH) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("crypto/cipher: incorrect nonce length given to GCM")
 	}
 
-	counter := byteorder.BEUint64(nonce[len(nonce)-8:])
+	counter := binary.BigEndian.Uint64(nonce[len(nonce)-8:])
 	if !g.ready {
 		// In the first call we learn the start value.
 		g.ready = true
