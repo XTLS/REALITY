@@ -14,6 +14,7 @@ import (
 	"github.com/xtls/reality/randutil"
 	// "github.com/xtls/reality/sysrand"
 	
+	"crypto/fips140"
 	"crypto/rand"
 	"io"
 	"sync"
@@ -33,10 +34,10 @@ var drbgs = sync.Pool{
 // uses an SP 800-90A Rev. 1 Deterministic Random Bit Generator (DRBG).
 // Otherwise, it uses the operating system's random number generator.
 func Read(b []byte) {
-	// if !fips140.Enabled {
-	// 	rand.Read(b)
-	// 	return
-	// }
+	if !fips140.Enabled() {
+		rand.Read(b)
+		return
+	}
 
 	// At every read, 128 random bits from the operating system are mixed as
 	// additional input, to make the output as strong as non-FIPS randomness.

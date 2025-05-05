@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"hash"
 	"io"
+
+	"github.com/xtls/reality/fips140tls"
 )
 
 // verifyHandshakeSignature verifies a signature against pre-hashed
@@ -242,7 +244,7 @@ func selectSignatureScheme(vers uint16, c *Certificate, peerAlgs []SignatureSche
 	// Pick signature scheme in the peer's preference order, as our
 	// preference order is not configurable.
 	for _, preferredAlg := range peerAlgs {
-		if needFIPS() && !isSupportedSignatureAlgorithm(preferredAlg, defaultSupportedSignatureAlgorithmsFIPS) {
+		if fips140tls.Required() && !isSupportedSignatureAlgorithm(preferredAlg, defaultSupportedSignatureAlgorithmsFIPS) {
 			continue
 		}
 		if isSupportedSignatureAlgorithm(preferredAlg, supportedAlgs) {

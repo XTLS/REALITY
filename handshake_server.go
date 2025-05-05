@@ -910,7 +910,11 @@ func (c *Conn) processCertsFromClient(certificate Certificate) error {
 			return &CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
 		}
 
-		c.verifiedChains = chains
+		c.verifiedChains, err = fipsAllowedChains(chains)
+		if err != nil {
+			c.sendAlert(alertBadCertificate)
+			return &CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
+		}
 	}
 
 	c.peerCertificates = certs

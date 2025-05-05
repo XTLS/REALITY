@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/xtls/reality/byteorder"
+	"github.com/xtls/reality/fips140tls"
 	"github.com/xtls/reality/mlkem"
 	"github.com/xtls/reality/tls13"
 )
@@ -215,7 +216,7 @@ func (hs *serverHandshakeStateTLS13) processClientHello() error {
 	if !hasAESGCMHardwareSupport || !aesgcmPreferred(hs.clientHello.cipherSuites) {
 		preferenceList = defaultCipherSuitesTLS13NoAES
 	}
-	if needFIPS() {
+	if fips140tls.Required() {
 		preferenceList = defaultCipherSuitesTLS13FIPS
 	}
 	for _, suiteID := range preferenceList {

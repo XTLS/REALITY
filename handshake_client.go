@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/xtls/reality/byteorder"
+	"github.com/xtls/reality/fips140tls"
 	"github.com/xtls/reality/hpke"
 	"github.com/xtls/reality/mlkem"
 	"github.com/xtls/reality/tls13"
@@ -142,7 +143,7 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *keySharePrivateKeys, *echCon
 		if len(hello.supportedVersions) == 1 {
 			hello.cipherSuites = nil
 		}
-		if needFIPS() {
+		if fips140tls.Required() {
 			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13FIPS...)
 		} else if hasAESGCMHardwareSupport {
 			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13...)
@@ -1105,8 +1106,13 @@ func (c *Conn) verifyServerCertificate(certificates [][]byte) error {
 			for _, cert := range certs[1:] {
 				opts.Intermediates.AddCert(cert)
 			}
-			var err error
-			c.verifiedChains, err = certs[0].Verify(opts)
+			chains, err := certs[0].Verify(opts)
+			if err != nil {
+				c.sendAlert(alertBadCertificate)
+				return &CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
+			}
+
+			c.verifiedChains, err = fipsAllowedChains(chains)
 			if err != nil {
 				c.sendAlert(alertBadCertificate)
 				return &CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
@@ -1123,8 +1129,13 @@ func (c *Conn) verifyServerCertificate(certificates [][]byte) error {
 		for _, cert := range certs[1:] {
 			opts.Intermediates.AddCert(cert)
 		}
-		var err error
-		c.verifiedChains, err = certs[0].Verify(opts)
+		chains, err := certs[0].Verify(opts)
+		if err != nil {
+			c.sendAlert(alertBadCertificate)
+			return &CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
+		}
+
+		c.verifiedChains, err = fipsAllowedChains(chains)
 		if err != nil {
 			c.sendAlert(alertBadCertificate)
 			return &CertificateVerificationError{UnverifiedCertificates: certs, Err: err}
