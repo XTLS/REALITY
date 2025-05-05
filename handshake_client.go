@@ -13,7 +13,6 @@ import (
 	"crypto/rsa"
 	"crypto/subtle"
 	"crypto/x509"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
@@ -22,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xtls/reality/byteorder"
 	"github.com/xtls/reality/hpke"
 	"github.com/xtls/reality/mlkem"
 	"github.com/xtls/reality/tls13"
@@ -707,7 +707,7 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 			return err
 		}
 		if len(skx.key) >= 3 && skx.key[0] == 3 /* named curve */ {
-			c.curveID = CurveID(binary.BigEndian.Uint16(skx.key[1:]))
+			c.curveID = CurveID(byteorder.BEUint16(skx.key[1:]))
 		}
 
 		msg, err = c.readHandshake(&hs.finishedHash)

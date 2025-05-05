@@ -14,7 +14,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/x509"
-	"encoding/binary"
 	"errors"
 	"hash"
 	"io"
@@ -22,6 +21,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/xtls/reality/byteorder"
 	"github.com/xtls/reality/mlkem"
 	"github.com/xtls/reality/tls13"
 )
@@ -953,7 +953,7 @@ func (c *Conn) sendSessionTicket(earlyData bool, extra [][]byte) error {
 	if _, err := c.config.rand().Read(ageAdd); err != nil {
 		return err
 	}
-	m.ageAdd = binary.LittleEndian.Uint32(ageAdd)
+	m.ageAdd = byteorder.LEUint32(ageAdd)
 
 	if earlyData {
 		// RFC 9001, Section 4.6.1
