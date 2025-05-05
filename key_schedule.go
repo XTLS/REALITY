@@ -11,9 +11,8 @@ import (
 	"hash"
 	"io"
 
-	"golang.org/x/crypto/sha3"
-
-	"github.com/xtls/reality/mlkem768"
+	"github.com/xtls/reality/mlkem"
+	"github.com/xtls/reality/sha3"
 	"github.com/xtls/reality/tls13"
 )
 
@@ -55,11 +54,11 @@ func (c *cipherSuiteTLS13) exportKeyingMaterial(s *tls13.MasterSecret, transcrip
 type keySharePrivateKeys struct {
 	curveID CurveID
 	ecdhe   *ecdh.PrivateKey
-	kyber   *mlkem768.DecapsulationKey768
+	kyber   *mlkem.DecapsulationKey768
 }
 
 // kyberDecapsulate implements decapsulation according to Kyber Round 3.
-func kyberDecapsulate(dk *mlkem768.DecapsulationKey768, c []byte) ([]byte, error) {
+func kyberDecapsulate(dk *mlkem.DecapsulationKey768, c []byte) ([]byte, error) {
 	K, err := dk.Decapsulate(c)
 	if err != nil {
 		return nil, err
@@ -69,7 +68,7 @@ func kyberDecapsulate(dk *mlkem768.DecapsulationKey768, c []byte) ([]byte, error
 
 // kyberEncapsulate implements encapsulation according to Kyber Round 3.
 func kyberEncapsulate(ek []byte) (c, ss []byte, err error) {
-	k, err := mlkem768.NewEncapsulationKey768(ek)
+	k, err := mlkem.NewEncapsulationKey768(ek)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -78,13 +77,14 @@ func kyberEncapsulate(ek []byte) (c, ss []byte, err error) {
 }
 
 func kyberSharedSecret(c, K []byte) []byte {
-	// Package mlkem768 implements ML-KEM, which compared to Kyber removed a
+	// Package mlkem implements ML-KEM, which compared to Kyber removed a
 	// final hashing step. Compute SHAKE-256(K || SHA3-256(c), 32) to match Kyber.
 	// See https://words.filippo.io/mlkem768/#bonus-track-using-a-ml-kem-implementation-as-kyber-v3.
 	h := sha3.NewShake256()
 	h.Write(K)
-	ch := sha3.Sum256(c)
-	h.Write(ch[:])
+	ch := sha3.New256()
+	ch.Write(c)
+	h.Write(ch.Sum(nil))
 	out := make([]byte, 32)
 	h.Read(out)
 	return out

@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/xtls/reality/hpke"
-	"github.com/xtls/reality/mlkem768"
+	"github.com/xtls/reality/mlkem"
 	"github.com/xtls/reality/tls13"
 )
 
@@ -160,11 +160,11 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *keySharePrivateKeys, *echCon
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			seed := make([]byte, mlkem768.SeedSize)
+			seed := make([]byte, mlkem.SeedSize)
 			if _, err := io.ReadFull(config.rand(), seed); err != nil {
 				return nil, nil, nil, err
 			}
-			keyShareKeys.kyber, err = mlkem768.NewDecapsulationKey768(seed)
+			keyShareKeys.kyber, err = mlkem.NewDecapsulationKey768(seed)
 			if err != nil {
 				return nil, nil, nil, err
 			}
