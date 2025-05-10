@@ -379,7 +379,7 @@ func decodeInnerClientHello(outer *clientHelloMsg, encoded []byte) (*clientHello
 	}
 
 	if !bytes.Equal(inner.encryptedClientHello, []byte{uint8(innerECHExt)}) {
-		return nil, errors.New("tls: client sent invalid encrypted_client_hello extension")
+		return nil, errInvalidECHExt
 	}
 
 	if len(inner.supportedVersions) != 1 || (len(inner.supportedVersions) >= 1 && inner.supportedVersions[0] != VersionTLS13) {
@@ -482,6 +482,7 @@ func (e *ECHRejectionError) Error() string {
 }
 
 var errMalformedECHExt = errors.New("tls: malformed encrypted_client_hello extension")
+var errInvalidECHExt = errors.New("tls: client sent invalid encrypted_client_hello extension")
 
 type echExtType uint8
 
@@ -508,7 +509,7 @@ func parseECHExt(ext []byte) (echType echExtType, cs echCipher, configID uint8, 
 		return echType, cs, 0, nil, nil, nil
 	}
 	if echType != outerECHExt {
-		err = errMalformedECHExt
+		err = errInvalidECHExt
 		return
 	}
 	if !s.ReadUint16(&cs.KDFID) {
@@ -550,8 +551,13 @@ func marshalEncryptedClientHelloConfigList(configs []EncryptedClientHelloKey) ([
 func (c *Conn) processECHClientHello(outer *clientHelloMsg) (*clientHelloMsg, *echServerContext, error) {
 	echType, echCiphersuite, configID, encap, payload, err := parseECHExt(outer.encryptedClientHello)
 	if err != nil {
-		c.sendAlert(alertDecodeError)
-		return nil, nil, errors.New("tls: client sent invalid encrypted_client_hello extension")
+		if errors.Is(err, errInvalidECHExt) {
+			c.sendAlert(alertIllegalParameter)
+		} else {
+			c.sendAlert(alertDecodeError)
+		}
+
+		return nil, nil, errInvalidECHExt
 	}
 
 	if echType == innerECHExt {
@@ -598,7 +604,7 @@ func (c *Conn) processECHClientHello(outer *clientHelloMsg) (*clientHelloMsg, *e
 		echInner, err := decodeInnerClientHello(outer, encodedInner)
 		if err != nil {
 			c.sendAlert(alertIllegalParameter)
-			return nil, nil, errors.New("tls: client sent invalid encrypted_client_hello extension")
+			return nil, nil, errInvalidECHExt
 		}
 
 		c.echAccepted = true
