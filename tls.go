@@ -188,7 +188,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					break
 				}
 				var aead cipher.AEAD
-				if aesgcmPreferred(hs.clientHello.cipherSuites) {
+				if isAESGCMPreferred(hs.clientHello.cipherSuites) {
 					block, _ := aes.NewCipher(hs.c.AuthKey)
 					aead, _ = gcm.NewGCMForTLS13(block.(*fipsaes.Block))
 				} else {
