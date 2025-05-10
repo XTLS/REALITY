@@ -35,7 +35,7 @@ import (
 const maxClientPSKIdentities = 5
 
 type echServerContext struct {
-	hpkeContext *hpke.Receipient
+	hpkeContext *hpke.Recipient
 	configID    uint8
 	ciphersuite echCipher
 	transcript  hash.Hash
