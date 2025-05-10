@@ -161,7 +161,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	go func() {
 		for {
 			mutex.Lock()
-			hs.clientHello, err = hs.c.readClientHello(context.Background()) // TODO: Change some rules in this function.
+			hs.clientHello, _, err = hs.c.readClientHello(context.Background()) // TODO: Change some rules in this function.
 			if copying || err != nil || hs.c.vers != VersionTLS13 || !config.ServerNames[hs.clientHello.serverName] {
 				break
 			}
