@@ -2,8 +2,20 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-Go file.
 
-// Server side implementation of REALITY protocol, a fork of package tls in Go 1.20.
+// Server side implementation of REALITY protocol, a fork of package tls in latest Go.
 // For client side, please follow https://github.com/XTLS/Xray-core/blob/main/transport/internet/reality/reality.go.
+
+// Package tls partially implements TLS 1.2, as specified in RFC 5246,
+// and TLS 1.3, as specified in RFC 8446.
+//
+// # FIPS 140-3 mode
+//
+// When the program is in [FIPS 140-3 mode], this package behaves as if
+// only protocol versions, cipher suites, signature algorithms, and
+// key exchange algorithms approved by NIST SP 800-52r2 are implemented.
+// Others are silently ignored and not negotiated.
+//
+// [FIPS 140-3 mode]: https://go.dev/doc/security/fips140
 package reality
 
 // BUG(agl): The crypto/tls package only implements some countermeasures
