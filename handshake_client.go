@@ -464,6 +464,11 @@ func (c *Conn) loadSession(hello *clientHelloMsg) (
 			return nil, nil, nil, nil
 		}
 
+		// FIPS 140-3 requires the use of Extended Master Secret.
+		if !session.extMasterSecret && fips140tls.Required() {
+			return nil, nil, nil, nil
+		}
+
 		hello.sessionTicket = session.ticket
 		return
 	}
@@ -774,6 +779,10 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 		hs.masterSecret = extMasterFromPreMasterSecret(c.vers, hs.suite, preMasterSecret,
 			hs.finishedHash.Sum())
 	} else {
+		if fips140tls.Required() {
+			c.sendAlert(alertHandshakeFailure)
+			return errors.New("tls: FIPS 140-3 requires the use of Extended Master Secret")
+		}
 		hs.masterSecret = masterFromPreMasterSecret(c.vers, hs.suite, preMasterSecret,
 			hs.hello.random, hs.serverHello.random)
 	}
