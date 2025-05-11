@@ -625,13 +625,13 @@ func (hs *serverHandshakeStateTLS13) doHelloRetryRequest(selectedGroup CurveID) 
 		if err := transcriptMsg(helloRetryRequest, confTranscript); err != nil {
 			return nil, err
 		}
-		b, _ := hkdf.Extract(hs.suite.hash.New, hs.clientHello.random, nil)
-		acceptConfirmation := tls13.ExpandLabel(hs.suite.hash.New,
-			b,
-			"hrr ech accept confirmation",
-			confTranscript.Sum(nil),
-			8,
-		)
+		h := hs.suite.hash.New
+		prf, err := hkdf.Extract(h, hs.clientHello.random, nil)
+		if err != nil {
+			c.sendAlert(alertInternalError)
+			return nil, err
+		}
+		acceptConfirmation := tls13.ExpandLabel(h, prf, "hrr ech accept confirmation", confTranscript.Sum(nil), 8)
 		helloRetryRequest.encryptedClientHello = acceptConfirmation
 	}
 
@@ -789,13 +789,13 @@ func (hs *serverHandshakeStateTLS13) sendServerParameters() error {
 			return err
 		}
 		// compute the acceptance message
-		b, _ := hkdf.Extract(hs.suite.hash.New, hs.clientHello.random, nil)
-		acceptConfirmation := tls13.ExpandLabel(hs.suite.hash.New,
-			b,
-			"ech accept confirmation",
-			echTranscript.Sum(nil),
-			8,
-		)
+		h := hs.suite.hash.New
+		prk, err := hkdf.Extract(h, hs.clientHello.random, nil)
+		if err != nil {
+			c.sendAlert(alertInternalError)
+			return err
+		}
+		acceptConfirmation := tls13.ExpandLabel(h, prk, "ech accept confirmation", echTranscript.Sum(nil), 8)
 		copy(hs.hello.random[32-8:], acceptConfirmation)
 	}
 
