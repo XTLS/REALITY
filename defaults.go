@@ -12,14 +12,15 @@ import (
 // Defaults are collected in this file to allow distributions to more easily patch
 // them to apply local policies.
 
-//var tlskyber = godebug.New("tlskyber")
+//var tlsmlkem = godebug.New("tlsmlkem")
 
+// defaultCurvePreferences is the default set of supported key exchanges, as
+// well as the preference order.
 func defaultCurvePreferences() []CurveID {
 	if false {
 		return []CurveID{X25519, CurveP256, CurveP384, CurveP521}
 	}
-	// For now, x25519Kyber768Draft00 must always be followed by X25519.
-	return []CurveID{x25519Kyber768Draft00, X25519, CurveP256, CurveP384, CurveP521}
+	return []CurveID{X25519MLKEM768, X25519, CurveP256, CurveP384, CurveP521}
 }
 
 // defaultSupportedSignatureAlgorithms contains the signature and hash algorithms that
@@ -44,9 +45,17 @@ var defaultSupportedSignatureAlgorithms = []SignatureScheme{
 //var tlsrsakex = godebug.New("tlsrsakex")
 //var tls3des = godebug.New("tls3des")
 
-func defaultCipherSuites() []uint16 {
-	suites := slices.Clone(cipherSuitesPreferenceOrder)
-	return slices.DeleteFunc(suites, func(c uint16) bool {
+func supportedCipherSuites(aesGCMPreferred bool) []uint16 {
+	if aesGCMPreferred {
+		return slices.Clone(cipherSuitesPreferenceOrder)
+	} else {
+		return slices.Clone(cipherSuitesPreferenceOrderNoAES)
+	}
+}
+
+func defaultCipherSuites(aesGCMPreferred bool) []uint16 {
+	cipherSuites := supportedCipherSuites(aesGCMPreferred)
+	return slices.DeleteFunc(cipherSuites, func(c uint16) bool {
 		return disabledCipherSuites[c] ||
 			rsaKexCiphers[c] ||
 			tdesCiphers[c]
@@ -85,44 +94,6 @@ var defaultCipherSuitesTLS13 = []uint16{
 //go:linkname defaultCipherSuitesTLS13NoAES
 var defaultCipherSuitesTLS13NoAES = []uint16{
 	TLS_CHACHA20_POLY1305_SHA256,
-	TLS_AES_128_GCM_SHA256,
-	TLS_AES_256_GCM_SHA384,
-}
-
-// The FIPS-only policies below match BoringSSL's ssl_policy_fips_202205.
-
-var defaultSupportedVersionsFIPS = []uint16{
-	VersionTLS12,
-	VersionTLS13,
-}
-
-// defaultCurvePreferencesFIPS are the FIPS-allowed curves,
-// in preference order (most preferable first).
-var defaultCurvePreferencesFIPS = []CurveID{CurveP256, CurveP384}
-
-// defaultSupportedSignatureAlgorithmsFIPS currently are a subset of
-// defaultSupportedSignatureAlgorithms without Ed25519 and SHA-1.
-var defaultSupportedSignatureAlgorithmsFIPS = []SignatureScheme{
-	PSSWithSHA256,
-	PSSWithSHA384,
-	PSSWithSHA512,
-	PKCS1WithSHA256,
-	ECDSAWithP256AndSHA256,
-	PKCS1WithSHA384,
-	ECDSAWithP384AndSHA384,
-	PKCS1WithSHA512,
-}
-
-// defaultCipherSuitesFIPS are the FIPS-allowed cipher suites.
-var defaultCipherSuitesFIPS = []uint16{
-	TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-	TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-}
-
-// defaultCipherSuitesTLS13FIPS are the FIPS-allowed cipher suites for TLS 1.3.
-var defaultCipherSuitesTLS13FIPS = []uint16{
 	TLS_AES_128_GCM_SHA256,
 	TLS_AES_256_GCM_SHA384,
 }

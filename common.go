@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 	_ "unsafe" // for linkname
+
+	"github.com/xtls/reality/fips140tls"
 )
 
 const (
@@ -143,16 +145,20 @@ const (
 type CurveID uint16
 
 const (
-	CurveP256 CurveID = 23
-	CurveP384 CurveID = 24
-	CurveP521 CurveID = 25
-	X25519    CurveID = 29
-
-	// Experimental codepoint for X25519Kyber768Draft00, specified in
-	// draft-tls-westerbaan-xyber768d00-03. Not exported, as support might be
-	// removed in the future.
-	x25519Kyber768Draft00 CurveID = 0x6399 // X25519Kyber768Draft00
+	CurveP256      CurveID = 23
+	CurveP384      CurveID = 24
+	CurveP521      CurveID = 25
+	X25519         CurveID = 29
+	X25519MLKEM768 CurveID = 4588
 )
+
+func isTLS13OnlyKeyExchange(curve CurveID) bool {
+	return curve == X25519MLKEM768
+}
+
+func isPQKeyExchange(curve CurveID) bool {
+	return curve == X25519MLKEM768
+}
 
 // TLS 1.3 Key Share. See RFC 8446, Section 4.2.8.
 type keyShare struct {
@@ -241,6 +247,11 @@ type ConnectionState struct {
 	// TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, TLS_AES_128_GCM_SHA256).
 	CipherSuite uint16
 
+	// CurveID is the key exchange mechanism used for the connection. The name
+	// refers to elliptic curves for legacy reasons, see [CurveID]. If a legacy
+	// RSA key exchange is used, this value is zero.
+	CurveID CurveID
+
 	// NegotiatedProtocol is the application protocol negotiated with ALPN.
 	NegotiatedProtocol string
 
@@ -298,10 +309,6 @@ type ConnectionState struct {
 
 	// testingOnlyDidHRR is true if a HelloRetryRequest was sent/received.
 	testingOnlyDidHRR bool
-
-	// testingOnlyCurveID is the selected CurveID, or zero if an RSA exchanges
-	// is performed.
-	testingOnlyCurveID CurveID
 }
 
 // ExportKeyingMaterial returns length bytes of exported key material in a new
@@ -417,9 +424,12 @@ type ClientHelloInfo struct {
 	// client is using SNI (see RFC 4366, Section 3.1).
 	ServerName string
 
-	// SupportedCurves lists the elliptic curves supported by the client.
-	// SupportedCurves is set only if the Supported Elliptic Curves
-	// Extension is being used (see RFC 4492, Section 5.1.1).
+	// SupportedCurves lists the key exchange mechanisms supported by the
+	// client. It was renamed to "supported groups" in TLS 1.3, see RFC 8446,
+	// Section 4.2.7 and [CurveID].
+	//
+	// SupportedCurves may be nil in TLS 1.2 and lower if the Supported Elliptic
+	// Curves Extension is not being used (see RFC 4492, Section 5.1.1).
 	SupportedCurves []CurveID
 
 	// SupportedPoints lists the point formats supported by the client.
@@ -447,7 +457,7 @@ type ClientHelloInfo struct {
 	SupportedVersions []uint16
 
 	// Extensions lists the IDs of the extensions presented by the client
-	// in the client hello.
+	// in the ClientHello.
 	Extensions []uint16
 
 	// Conn is the underlying net.Conn for the connection. Do not read
@@ -773,14 +783,15 @@ type Config struct {
 	// which is currently TLS 1.3.
 	MaxVersion uint16
 
-	// CurvePreferences contains the elliptic curves that will be used in
-	// an ECDHE handshake, in preference order. If empty, the default will
-	// be used. The client will use the first preference as the type for
-	// its key share in TLS 1.3. This may change in the future.
+	// CurvePreferences contains a set of supported key exchange mechanisms.
+	// The name refers to elliptic curves for legacy reasons, see [CurveID].
+	// The order of the list is ignored, and key exchange mechanisms are chosen
+	// from this list using an internal preference order. If empty, the default
+	// will be used.
 	//
-	// From Go 1.23, the default includes the X25519Kyber768Draft00 hybrid
+	// From Go 1.24, the default includes the [X25519MLKEM768] hybrid
 	// post-quantum key exchange. To disable it, set CurvePreferences explicitly
-	// or use the GODEBUG=tlskyber=0 environment variable.
+	// or use the GODEBUG=tlsmlkem=0 environment variable.
 	CurvePreferences []CurveID
 
 	// DynamicRecordSizingDisabled disables adaptive sizing of TLS records.
@@ -803,8 +814,10 @@ type Config struct {
 
 	// EncryptedClientHelloConfigList is a serialized ECHConfigList. If
 	// provided, clients will attempt to connect to servers using Encrypted
-	// Client Hello (ECH) using one of the provided ECHConfigs. Servers
-	// currently ignore this field.
+	// Client Hello (ECH) using one of the provided ECHConfigs.
+	//
+	// Servers do not use this field. In order to configure ECH for servers, see
+	// the EncryptedClientHelloKeys field.
 	//
 	// If the list contains no valid ECH configs, the handshake will fail
 	// and return an error.
@@ -813,7 +826,7 @@ type Config struct {
 	// be VersionTLS13.
 	//
 	// When EncryptedClientHelloConfigList is set, the handshake will only
-	// succeed if ECH is sucessfully negotiated. If the server rejects ECH,
+	// succeed if ECH is successfully negotiated. If the server rejects ECH,
 	// an ECHRejectionError error will be returned, which may contain a new
 	// ECHConfigList that the server suggests using.
 	//
@@ -822,9 +835,11 @@ type Config struct {
 	EncryptedClientHelloConfigList []byte
 
 	// EncryptedClientHelloRejectionVerify, if not nil, is called when ECH is
-	// rejected, in order to verify the ECH provider certificate in the outer
-	// Client Hello. If it returns a non-nil error, the handshake is aborted and
-	// that error results.
+	// rejected by the remote server, in order to verify the ECH provider
+	// certificate in the outer ClientHello. If it returns a non-nil error, the
+	// handshake is aborted and that error results.
+	//
+	// On the server side this field is not used.
 	//
 	// Unlike VerifyPeerCertificate and VerifyConnection, normal certificate
 	// verification will not be performed before calling
@@ -835,6 +850,20 @@ type Config struct {
 	// certificate. VerifyPeerCertificate and VerifyConnection are not called
 	// when ECH is rejected, even if set, and InsecureSkipVerify is ignored.
 	EncryptedClientHelloRejectionVerify func(ConnectionState) error
+
+	// EncryptedClientHelloKeys are the ECH keys to use when a client
+	// attempts ECH.
+	//
+	// If EncryptedClientHelloKeys is set, MinVersion, if set, must be
+	// VersionTLS13.
+	//
+	// If a client attempts ECH, but it is rejected by the server, the server
+	// will send a list of configs to retry based on the set of
+	// EncryptedClientHelloKeys which have the SendAsRetry field set.
+	//
+	// On the client side, this field is ignored. In order to configure ECH for
+	// clients, see the EncryptedClientHelloConfigList field.
+	EncryptedClientHelloKeys []EncryptedClientHelloKey
 
 	// mutex protects sessionTicketKeys and autoSessionTicketKeys.
 	mutex sync.RWMutex
@@ -848,6 +877,25 @@ type Config struct {
 	// auto-rotation logic. See Config.ticketKeys.
 	autoSessionTicketKeys []ticketKey
 }
+
+// EncryptedClientHelloKey holds a private key that is associated
+// with a specific ECH config known to a client.
+type EncryptedClientHelloKey struct {
+	// Config should be a marshalled ECHConfig associated with PrivateKey. This
+	// must match the config provided to clients byte-for-byte. The config
+	// should only specify the DHKEM(X25519, HKDF-SHA256) KEM ID (0x0020), the
+	// HKDF-SHA256 KDF ID (0x0001), and a subset of the following AEAD IDs:
+	// AES-128-GCM (0x0001), AES-256-GCM (0x0002), ChaCha20Poly1305 (0x0003).
+	Config []byte
+	// PrivateKey should be a marshalled private key. Currently, we expect
+	// this to be the output of [ecdh.PrivateKey.Bytes].
+	PrivateKey []byte
+	// SendAsRetry indicates if Config should be sent as part of the list of
+	// retry configs when ECH is requested by the client but rejected by the
+	// server.
+	SendAsRetry bool
+}
+
 
 const (
 	// ticketKeyLifetime is how long a ticket key remains valid and can be used to
@@ -936,6 +984,7 @@ func (c *Config) Clone() *Config {
 		KeyLogWriter:                        c.KeyLogWriter,
 		EncryptedClientHelloConfigList:      c.EncryptedClientHelloConfigList,
 		EncryptedClientHelloRejectionVerify: c.EncryptedClientHelloRejectionVerify,
+		EncryptedClientHelloKeys:            c.EncryptedClientHelloKeys,
 		sessionTicketKeys:                   c.sessionTicketKeys,
 		autoSessionTicketKeys:               c.autoSessionTicketKeys,
 	}
@@ -990,6 +1039,7 @@ func (c *Config) ticketKeys(configForClient *Config) []ticketKey {
 	if configForClient != nil {
 		configForClient.mutex.RLock()
 		if configForClient.SessionTicketsDisabled {
+			configForClient.mutex.RUnlock()
 			return nil
 		}
 		configForClient.initLegacySessionTicketKeyRLocked()
@@ -1083,20 +1133,28 @@ func (c *Config) time() time.Time {
 	return t()
 }
 
-func (c *Config) cipherSuites() []uint16 {
+func (c *Config) cipherSuites(aesGCMPreferred bool) []uint16 {
+	var cipherSuites []uint16
 	if c.CipherSuites == nil {
-		if needFIPS() {
-			return defaultCipherSuitesFIPS
-		}
-		return defaultCipherSuites()
-	}
-	if needFIPS() {
-		cipherSuites := slices.Clone(c.CipherSuites)
-		return slices.DeleteFunc(cipherSuites, func(id uint16) bool {
-			return !slices.Contains(defaultCipherSuitesFIPS, id)
+		cipherSuites = defaultCipherSuites(aesGCMPreferred)
+	} else {
+		cipherSuites = supportedCipherSuites(aesGCMPreferred)
+		cipherSuites = slices.DeleteFunc(cipherSuites, func(id uint16) bool {
+			return !slices.Contains(c.CipherSuites, id)
 		})
 	}
-	return c.CipherSuites
+	if fips140tls.Required() {
+		cipherSuites = slices.DeleteFunc(cipherSuites, func(id uint16) bool {
+			return !slices.Contains(allowedCipherSuitesFIPS, id)
+		})
+	}
+	return cipherSuites
+}
+
+// supportedCipherSuites returns the supported TLS 1.0–1.2 cipher suites in an
+// undefined order. For preference ordering, use [Config.cipherSuites].
+func (c *Config) supportedCipherSuites() []uint16 {
+	return c.cipherSuites(false)
 }
 
 var supportedVersions = []uint16{
@@ -1114,7 +1172,7 @@ const roleServer = false
 func (c *Config) supportedVersions(isClient bool) []uint16 {
 	versions := make([]uint16, 0, len(supportedVersions))
 	for _, v := range supportedVersions {
-		if needFIPS() && !slices.Contains(defaultSupportedVersionsFIPS, v) {
+		if fips140tls.Required() && !slices.Contains(allowedSupportedVersionsFIPS, v) {
 			continue
 		}
 		if (c == nil || c.MinVersion == 0) && v < VersionTLS12 {
@@ -1157,45 +1215,34 @@ func supportedVersionsFromMax(maxVersion uint16) []uint16 {
 }
 
 func (c *Config) curvePreferences(version uint16) []CurveID {
-	var curvePreferences []CurveID
+	curvePreferences := defaultCurvePreferences()
+	if fips140tls.Required() {
+		curvePreferences = slices.DeleteFunc(curvePreferences, func(x CurveID) bool {
+			return !slices.Contains(allowedCurvePreferencesFIPS, x)
+		})
+	}
 	if c != nil && len(c.CurvePreferences) != 0 {
-		curvePreferences = slices.Clone(c.CurvePreferences)
-		if needFIPS() {
-			return slices.DeleteFunc(curvePreferences, func(c CurveID) bool {
-				return !slices.Contains(defaultCurvePreferencesFIPS, c)
-			})
-		}
-	} else if needFIPS() {
-		curvePreferences = slices.Clone(defaultCurvePreferencesFIPS)
-	} else {
-		curvePreferences = defaultCurvePreferences()
+		curvePreferences = slices.DeleteFunc(curvePreferences, func(x CurveID) bool {
+			return !slices.Contains(c.CurvePreferences, x)
+		})
 	}
 	if version < VersionTLS13 {
-		return slices.DeleteFunc(curvePreferences, func(c CurveID) bool {
-			return c == x25519Kyber768Draft00
-		})
+		curvePreferences = slices.DeleteFunc(curvePreferences, isTLS13OnlyKeyExchange)
 	}
 	return curvePreferences
 }
 
 func (c *Config) supportsCurve(version uint16, curve CurveID) bool {
-	for _, cc := range c.curvePreferences(version) {
-		if cc == curve {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.curvePreferences(version), curve)
 }
 
 // mutualVersion returns the protocol version to use given the advertised
 // versions of the peer. Priority is given to the peer preference order.
 func (c *Config) mutualVersion(isClient bool, peerVersions []uint16) (uint16, bool) {
 	supportedVersions := c.supportedVersions(isClient)
-	for _, peerVersion := range peerVersions {
-		for _, v := range supportedVersions {
-			if v == peerVersion {
-				return v, true
-			}
+	for _, v := range peerVersions {
+		if slices.Contains(supportedVersions, v) {
+			return v, true
 		}
 	}
 	return 0, false
@@ -1316,7 +1363,7 @@ func (chi *ClientHelloInfo) SupportsCertificate(c *Certificate) error {
 		}
 		// Finally, there needs to be a mutual cipher suite that uses the static
 		// RSA key exchange instead of ECDHE.
-		rsaCipherSuite := selectCipherSuite(chi.CipherSuites, config.cipherSuites(), func(c *cipherSuite) bool {
+		rsaCipherSuite := selectCipherSuite(chi.CipherSuites, config.supportedCipherSuites(), func(c *cipherSuite) bool {
 			if c.flags&suiteECDHE != 0 {
 				return false
 			}
@@ -1347,7 +1394,11 @@ func (chi *ClientHelloInfo) SupportsCertificate(c *Certificate) error {
 	}
 
 	// The only signed key exchange we support is ECDHE.
-	if !supportsECDHE(config, vers, chi.SupportedCurves, chi.SupportedPoints) {
+	ecdheSupported, err := supportsECDHE(config, vers, chi.SupportedCurves, chi.SupportedPoints)
+	if err != nil {
+		return err
+	}
+	if !ecdheSupported {
 		return supportsRSAFallback(errors.New("client doesn't support ECDHE, can only use legacy RSA key exchange"))
 	}
 
@@ -1393,7 +1444,7 @@ func (chi *ClientHelloInfo) SupportsCertificate(c *Certificate) error {
 	// Make sure that there is a mutually supported cipher suite that works with
 	// this certificate. Cipher suite selection will then apply the logic in
 	// reverse to pick it. See also serverHandshakeState.cipherSuiteOk.
-	cipherSuite := selectCipherSuite(chi.CipherSuites, config.cipherSuites(), func(c *cipherSuite) bool {
+	cipherSuite := selectCipherSuite(chi.CipherSuites, config.supportedCipherSuites(), func(c *cipherSuite) bool {
 		if c.flags&suiteECDHE == 0 {
 			return false
 		}
@@ -1637,19 +1688,14 @@ func unexpectedMessageError(wanted, got any) error {
 
 // supportedSignatureAlgorithms returns the supported signature algorithms.
 func supportedSignatureAlgorithms() []SignatureScheme {
-	if !needFIPS() {
-		return defaultSupportedSignatureAlgorithms
+	if fips140tls.Required() {
+		return allowedSupportedSignatureAlgorithmsFIPS
 	}
-	return defaultSupportedSignatureAlgorithmsFIPS
+	return defaultSupportedSignatureAlgorithms
 }
 
 func isSupportedSignatureAlgorithm(sigAlg SignatureScheme, supportedSignatureAlgorithms []SignatureScheme) bool {
-	for _, s := range supportedSignatureAlgorithms {
-		if s == sigAlg {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(supportedSignatureAlgorithms, sigAlg)
 }
 
 // CertificateVerificationError is returned when certificate verification fails during the handshake.
@@ -1665,4 +1711,43 @@ func (e *CertificateVerificationError) Error() string {
 
 func (e *CertificateVerificationError) Unwrap() error {
 	return e.Err
+}
+
+// fipsAllowedChains returns chains that are allowed to be used in a TLS connection
+// based on the current fips140tls enforcement setting.
+//
+// If fips140tls is not required, the chains are returned as-is with no processing.
+// Otherwise, the returned chains are filtered to only those allowed by FIPS 140-3.
+// If this results in no chains it returns an error.
+func fipsAllowedChains(chains [][]*x509.Certificate) ([][]*x509.Certificate, error) {
+	if !fips140tls.Required() {
+		return chains, nil
+	}
+
+	permittedChains := make([][]*x509.Certificate, 0, len(chains))
+	for _, chain := range chains {
+		if fipsAllowChain(chain) {
+			permittedChains = append(permittedChains, chain)
+		}
+	}
+
+	if len(permittedChains) == 0 {
+		return nil, errors.New("tls: no FIPS compatible certificate chains found")
+	}
+
+	return permittedChains, nil
+}
+
+func fipsAllowChain(chain []*x509.Certificate) bool {
+	if len(chain) == 0 {
+		return false
+	}
+
+	for _, cert := range chain {
+		if !isCertificateAllowedFIPS(cert) {
+			return false
+		}
+	}
+
+	return true
 }

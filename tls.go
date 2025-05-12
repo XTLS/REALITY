@@ -2,8 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-Go file.
 
-// Server side implementation of REALITY protocol, a fork of package tls in Go 1.20.
+// Server side implementation of REALITY protocol, a fork of package tls in latest Go.
 // For client side, please follow https://github.com/XTLS/Xray-core/blob/main/transport/internet/reality/reality.go.
+
+// Package tls partially implements TLS 1.2, as specified in RFC 5246,
+// and TLS 1.3, as specified in RFC 8446.
+//
+// # FIPS 140-3 mode
+//
+// When the program is in [FIPS 140-3 mode], this package behaves as if only
+// SP 800-140C and SP 800-140D approved protocol versions, cipher suites,
+// signature algorithms, certificate public key types and sizes, and key
+// exchange and derivation algorithms were implemented. Others are silently
+// ignored and not negotiated, or rejected. This set may depend on the
+// algorithms supported by the FIPS 140-3 Go Cryptographic Module selected with
+// GOFIPS140, and may change across Go versions.
+//
+// [FIPS 140-3 mode]: https://go.dev/doc/security/fips140
 package reality
 
 // BUG(agl): The crypto/tls package only implements some countermeasures
@@ -38,6 +53,9 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
+
+	"github.com/xtls/reality/gcm"
+	fipsaes "github.com/xtls/reality/aes"
 )
 
 type CloseWriteConn interface {
@@ -158,7 +176,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	go func() {
 		for {
 			mutex.Lock()
-			hs.clientHello, err = hs.c.readClientHello(context.Background()) // TODO: Change some rules in this function.
+			hs.clientHello, _, err = hs.c.readClientHello(context.Background()) // TODO: Change some rules in this function.
 			if copying || err != nil || hs.c.vers != VersionTLS13 || !config.ServerNames[hs.clientHello.serverName] {
 				break
 			}
@@ -173,9 +191,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					break
 				}
 				var aead cipher.AEAD
-				if aesgcmPreferred(hs.clientHello.cipherSuites) {
+				if isAESGCMPreferred(hs.clientHello.cipherSuites) {
 					block, _ := aes.NewCipher(hs.c.AuthKey)
-					aead, _ = cipher.NewGCM(block)
+					aead, _ = gcm.NewGCMForTLS13(block.(*fipsaes.Block))
 				} else {
 					aead, _ = chacha20poly1305.New(hs.c.AuthKey)
 				}

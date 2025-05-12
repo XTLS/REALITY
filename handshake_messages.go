@@ -662,6 +662,10 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 				}
 				m.pskBinders = append(m.pskBinders, binder)
 			}
+		case extensionEncryptedClientHello:
+			if !extData.ReadBytes(&m.encryptedClientHello, len(extData)) {
+				return false
+			}
 		default:
 			// Ignore unknown extensions.
 			continue
