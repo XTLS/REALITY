@@ -25,7 +25,7 @@ import (
 	"slices"
 	"sort"
 	"time"
-	
+
 	"github.com/xtls/reality/fips140tls"
 	"github.com/xtls/reality/hpke"
 	"github.com/xtls/reality/tls13"
@@ -93,11 +93,31 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		hs.suite = cipherSuiteTLS13ByID(hs.hello.cipherSuite)
 		c.cipherSuite = hs.suite.id
 		hs.transcript = hs.suite.hash.New()
-		
+
+		var peerData []byte
+		for _, keyShare := range hs.clientHello.keyShares {
+			if keyShare.group == hs.hello.serverShare.group {
+				peerData = keyShare.data
+				break
+			}
+		}
+
+		var peerPub = peerData
+		if hs.hello.serverShare.group == X25519MLKEM768 {
+			peerPub = peerData[mlkem.EncapsulationKeySize768:]
+		}
+
 		key, _ := generateECDHEKey(c.config.rand(), X25519)
 		copy(hs.hello.serverShare.data, key.PublicKey().Bytes())
-		peerKey, _ := key.Curve().NewPublicKey(hs.clientHello.keyShares[hs.clientHello.keyShares[0].group].data)
+		peerKey, _ := key.Curve().NewPublicKey(peerPub)
 		hs.sharedKey, _ = key.ECDH(peerKey)
+
+		if hs.hello.serverShare.group == X25519MLKEM768 {
+			k, _ := mlkem.NewEncapsulationKey768(peerData[:mlkem.EncapsulationKeySize768])
+			mlkemSharedSecret, ciphertext := k.Encapsulate()
+			hs.sharedKey = append(mlkemSharedSecret, hs.sharedKey...)
+			copy(hs.hello.serverShare.data, append(ciphertext, hs.hello.serverShare.data[:32]...))
+		}
 
 		c.serverName = hs.clientHello.serverName
 	}

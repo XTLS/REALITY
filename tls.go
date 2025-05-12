@@ -34,6 +34,7 @@ import (
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/mlkem"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -54,8 +55,8 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 
-	"github.com/xtls/reality/gcm"
 	fipsaes "github.com/xtls/reality/aes"
+	"github.com/xtls/reality/gcm"
 )
 
 type CloseWriteConn interface {
@@ -180,7 +181,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if copying || err != nil || hs.c.vers != VersionTLS13 || !config.ServerNames[hs.clientHello.serverName] {
 				break
 			}
-			for i, keyShare := range hs.clientHello.keyShares {
+			for _, keyShare := range hs.clientHello.keyShares {
 				if keyShare.group != X25519 || len(keyShare.data) != 32 {
 					continue
 				}
@@ -222,7 +223,6 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					(config.ShortIds[hs.c.ClientShortId]) {
 					hs.c.conn = conn
 				}
-				hs.clientHello.keyShares[0].group = CurveID(i)
 				break
 			}
 			if config.Show {
@@ -308,7 +308,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					if !hs.hello.unmarshal(s2cSaved[recordHeaderLen:handshakeLen]) ||
 						hs.hello.vers != VersionTLS12 || hs.hello.supportedVersion != VersionTLS13 ||
 						cipherSuiteTLS13ByID(hs.hello.cipherSuite) == nil ||
-						hs.hello.serverShare.group != X25519 || len(hs.hello.serverShare.data) != 32 {
+						(!(hs.hello.serverShare.group == X25519 && len(hs.hello.serverShare.data) == 32) &&
+							!(hs.hello.serverShare.group == X25519MLKEM768 && len(hs.hello.serverShare.data) == mlkem.CiphertextSize768+32)) {
 						break f
 					}
 				}
