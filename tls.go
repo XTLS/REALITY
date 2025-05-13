@@ -30,7 +30,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"

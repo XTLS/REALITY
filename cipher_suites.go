@@ -512,11 +512,11 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
 	if len(noncePrefix) != noncePrefixLength {
 		panic("tls: internal error: wrong nonce length")
 	}
-	aes, err := aes.NewCipher(key)
+	aes, err := fipsaes.New(key)
 	if err != nil {
 		panic(err)
 	}
-	aead, err := gcm.NewGCMForTLS12(aes.(*fipsaes.Block))
+	aead, err := gcm.NewGCMForTLS12(aes)
 	if err != nil {
 		panic(err)
 	}
@@ -540,11 +540,11 @@ func aeadAESGCMTLS13(key, nonceMask []byte) aead {
 	if len(nonceMask) != aeadNonceLength {
 		panic("tls: internal error: wrong nonce length")
 	}
-	aes, err := aes.NewCipher(key)
+	aes, err := fipsaes.New(key)
 	if err != nil {
 		panic(err)
 	}
-	aead, err := gcm.NewGCMForTLS13(aes.(*fipsaes.Block))
+	aead, err := gcm.NewGCMForTLS13(aes)
 	if err != nil {
 		panic(err)
 	}
