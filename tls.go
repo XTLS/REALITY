@@ -30,7 +30,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/mlkem"
@@ -50,7 +49,6 @@ import (
 	"time"
 
 	"github.com/pires/go-proxyproto"
-	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 
@@ -190,13 +188,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if _, err = hkdf.New(sha256.New, hs.c.AuthKey, hs.clientHello.random[:20], []byte("REALITY")).Read(hs.c.AuthKey); err != nil {
 					break
 				}
-				var aead cipher.AEAD
-				if isAESGCMPreferred(hs.clientHello.cipherSuites) {
-					block, _ := fipsaes.New(hs.c.AuthKey)
-					aead, _ = gcm.NewGCMForTLS13(block)
-				} else {
-					aead, _ = chacha20poly1305.New(hs.c.AuthKey)
-				}
+				block, _ := fipsaes.New(hs.c.AuthKey)
+				aead, _ := gcm.NewGCMForTLS13(block)
 				if config.Show {
 					fmt.Printf("REALITY remoteAddr: %v\ths.c.AuthKey[:16]: %v\tAEAD: %T\n", remoteAddr, hs.c.AuthKey[:16], aead)
 				}
