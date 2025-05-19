@@ -39,7 +39,7 @@ const maxClientPSKIdentities = 5
 type echServerContext struct {
 	hpkeContext *hpke.Recipient
 	configID    uint8
-	ciphersuite echCipher
+	ciphersuite EchCipher
 	transcript  hash.Hash
 	// inner indicates that the initial client_hello we recieved contained an
 	// encrypted_client_hello extension that indicated it was an "inner" hello.
