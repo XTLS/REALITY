@@ -28,7 +28,7 @@ func init() {
 	slices.Sort(sortedSupportedAEADs)
 }
 
-type echCipher struct {
+type EchCipher struct {
 	KDFID  uint16
 	AEADID uint16
 }
@@ -38,7 +38,7 @@ type echExtension struct {
 	Data []byte
 }
 
-type echConfig struct {
+type EchConfig struct {
 	raw []byte
 
 	Version uint16
@@ -47,7 +47,7 @@ type echConfig struct {
 	ConfigID             uint8
 	KemID                uint16
 	PublicKey            []byte
-	SymmetricCipherSuite []echCipher
+	SymmetricCipherSuite []EchCipher
 
 	MaxNameLength uint8
 	PublicName    []byte
@@ -67,65 +67,65 @@ func (e *echConfigErr) Error() string {
 	return fmt.Sprintf("tls: malformed ECHConfig, invalid %s field", e.field)
 }
 
-func parseECHConfig(enc []byte) (skip bool, ec echConfig, err error) {
+func parseECHConfig(enc []byte) (skip bool, ec EchConfig, err error) {
 	s := cryptobyte.String(enc)
 	ec.raw = []byte(enc)
 	if !s.ReadUint16(&ec.Version) {
-		return false, echConfig{}, &echConfigErr{"version"}
+		return false, EchConfig{}, &echConfigErr{"version"}
 	}
 	if !s.ReadUint16(&ec.Length) {
-		return false, echConfig{}, &echConfigErr{"length"}
+		return false, EchConfig{}, &echConfigErr{"length"}
 	}
 	if len(ec.raw) < int(ec.Length)+4 {
-		return false, echConfig{}, &echConfigErr{"length"}
+		return false, EchConfig{}, &echConfigErr{"length"}
 	}
 	ec.raw = ec.raw[:ec.Length+4]
 	if ec.Version != extensionEncryptedClientHello {
 		s.Skip(int(ec.Length))
-		return true, echConfig{}, nil
+		return true, EchConfig{}, nil
 	}
 	if !s.ReadUint8(&ec.ConfigID) {
-		return false, echConfig{}, &echConfigErr{"config_id"}
+		return false, EchConfig{}, &echConfigErr{"config_id"}
 	}
 	if !s.ReadUint16(&ec.KemID) {
-		return false, echConfig{}, &echConfigErr{"kem_id"}
+		return false, EchConfig{}, &echConfigErr{"kem_id"}
 	}
 	if !readUint16LengthPrefixed(&s, &ec.PublicKey) {
-		return false, echConfig{}, &echConfigErr{"public_key"}
+		return false, EchConfig{}, &echConfigErr{"public_key"}
 	}
 	var cipherSuites cryptobyte.String
 	if !s.ReadUint16LengthPrefixed(&cipherSuites) {
-		return false, echConfig{}, &echConfigErr{"cipher_suites"}
+		return false, EchConfig{}, &echConfigErr{"cipher_suites"}
 	}
 	for !cipherSuites.Empty() {
-		var c echCipher
+		var c EchCipher
 		if !cipherSuites.ReadUint16(&c.KDFID) {
-			return false, echConfig{}, &echConfigErr{"cipher_suites kdf_id"}
+			return false, EchConfig{}, &echConfigErr{"cipher_suites kdf_id"}
 		}
 		if !cipherSuites.ReadUint16(&c.AEADID) {
-			return false, echConfig{}, &echConfigErr{"cipher_suites aead_id"}
+			return false, EchConfig{}, &echConfigErr{"cipher_suites aead_id"}
 		}
 		ec.SymmetricCipherSuite = append(ec.SymmetricCipherSuite, c)
 	}
 	if !s.ReadUint8(&ec.MaxNameLength) {
-		return false, echConfig{}, &echConfigErr{"maximum_name_length"}
+		return false, EchConfig{}, &echConfigErr{"maximum_name_length"}
 	}
 	var publicName cryptobyte.String
 	if !s.ReadUint8LengthPrefixed(&publicName) {
-		return false, echConfig{}, &echConfigErr{"public_name"}
+		return false, EchConfig{}, &echConfigErr{"public_name"}
 	}
 	ec.PublicName = publicName
 	var extensions cryptobyte.String
 	if !s.ReadUint16LengthPrefixed(&extensions) {
-		return false, echConfig{}, &echConfigErr{"extensions"}
+		return false, EchConfig{}, &echConfigErr{"extensions"}
 	}
 	for !extensions.Empty() {
 		var e echExtension
 		if !extensions.ReadUint16(&e.Type) {
-			return false, echConfig{}, &echConfigErr{"extensions type"}
+			return false, EchConfig{}, &echConfigErr{"extensions type"}
 		}
 		if !extensions.ReadUint16LengthPrefixed((*cryptobyte.String)(&e.Data)) {
-			return false, echConfig{}, &echConfigErr{"extensions data"}
+			return false, EchConfig{}, &echConfigErr{"extensions data"}
 		}
 		ec.Extensions = append(ec.Extensions, e)
 	}
@@ -136,7 +136,7 @@ func parseECHConfig(enc []byte) (skip bool, ec echConfig, err error) {
 // parseECHConfigList parses a draft-ietf-tls-esni-18 ECHConfigList, returning a
 // slice of parsed ECHConfigs, in the same order they were parsed, or an error
 // if the list is malformed.
-func parseECHConfigList(data []byte) ([]echConfig, error) {
+func parseECHConfigList(data []byte) ([]EchConfig, error) {
 	s := cryptobyte.String(data)
 	var length uint16
 	if !s.ReadUint16(&length) {
@@ -145,7 +145,7 @@ func parseECHConfigList(data []byte) ([]echConfig, error) {
 	if length != uint16(len(data)-2) {
 		return nil, errMalformedECHConfigList
 	}
-	var configs []echConfig
+	var configs []EchConfig
 	for len(s) > 0 {
 		if len(s) < 4 {
 			return nil, errors.New("tls: malformed ECHConfig")
@@ -163,7 +163,7 @@ func parseECHConfigList(data []byte) ([]echConfig, error) {
 	return configs, nil
 }
 
-func pickECHConfig(list []echConfig) *echConfig {
+func pickECHConfig(list []EchConfig) *EchConfig {
 	for _, ec := range list {
 		if _, ok := hpke.SupportedKEMs[ec.KemID]; !ok {
 			continue
@@ -202,7 +202,7 @@ func pickECHConfig(list []echConfig) *echConfig {
 	return nil
 }
 
-func pickECHCipherSuite(suites []echCipher) (echCipher, error) {
+func pickECHCipherSuite(suites []EchCipher) (EchCipher, error) {
 	for _, s := range suites {
 		// NOTE: all of the supported AEADs and KDFs are fine, rather than
 		// imposing some sort of preference here, we just pick the first valid
@@ -215,7 +215,7 @@ func pickECHCipherSuite(suites []echCipher) (echCipher, error) {
 		}
 		return s, nil
 	}
-	return echCipher{}, errors.New("tls: no supported symmetric ciphersuites for ECH")
+	return EchCipher{}, errors.New("tls: no supported symmetric ciphersuites for ECH")
 }
 
 func encodeInnerClientHello(inner *clientHelloMsg, maxNameLength int) ([]byte, error) {
@@ -522,7 +522,7 @@ const (
 	outerECHExt echExtType = 0
 )
 
-func parseECHExt(ext []byte) (echType echExtType, cs echCipher, configID uint8, encap []byte, payload []byte, err error) {
+func parseECHExt(ext []byte) (echType echExtType, cs EchCipher, configID uint8, encap []byte, payload []byte, err error) {
 	data := make([]byte, len(ext))
 	copy(data, ext)
 	s := cryptobyte.String(data)
