@@ -30,6 +30,8 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/mlkem"
@@ -51,9 +53,6 @@ import (
 	"github.com/pires/go-proxyproto"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
-
-	fipsaes "github.com/xtls/reality/aes"
-	"github.com/xtls/reality/gcm"
 )
 
 type CloseWriteConn interface {
@@ -188,8 +187,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if _, err = hkdf.New(sha256.New, hs.c.AuthKey, hs.clientHello.random[:20], []byte("REALITY")).Read(hs.c.AuthKey); err != nil {
 					break
 				}
-				block, _ := fipsaes.New(hs.c.AuthKey)
-				aead, _ := gcm.NewGCMForTLS13(block)
+				block, _ := aes.NewCipher(hs.c.AuthKey)
+				aead, _ := cipher.NewGCM(block)
 				if config.Show {
 					fmt.Printf("REALITY remoteAddr: %v\ths.c.AuthKey[:16]: %v\tAEAD: %T\n", remoteAddr, hs.c.AuthKey[:16], aead)
 				}
