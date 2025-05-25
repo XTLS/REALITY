@@ -23,6 +23,8 @@ func defaultCurvePreferences() []CurveID {
 	return []CurveID{X25519MLKEM768, X25519, CurveP256, CurveP384, CurveP521}
 }
 
+//var tlssha1 = godebug.New("tlssha1")
+
 // defaultSupportedSignatureAlgorithms returns the signature and hash algorithms that
 // the code advertises and supports in a TLS 1.2+ ClientHello and in a TLS 1.2+
 // CertificateRequest. The two fields are merged to match with TLS 1.3.
@@ -39,8 +41,6 @@ func defaultSupportedSignatureAlgorithms() []SignatureScheme {
 		PKCS1WithSHA512,
 		ECDSAWithP384AndSHA384,
 		ECDSAWithP521AndSHA512,
-		PKCS1WithSHA1,
-		ECDSAWithSHA1,
 	}
 }
 
