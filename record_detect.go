@@ -26,6 +26,7 @@ func DetectRecordFingerprint(target string) ([]int, error) {
 		ServerName: host,
 	}
 	tlsConn := tls.Client(conn, tlsConfig)
+	err = tlsConn.Handshake()
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +73,8 @@ func (c *detectConn) Read(b []byte) (n int, err error) {
 			}
 		}
 		if len(result) != 1 {
-		c.done = true
-		c.resultChan <- result
+			c.done = true
+			c.resultChan <- result
 		}
 	}
 	return n, err
