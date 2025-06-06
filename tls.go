@@ -126,6 +126,8 @@ func Value(vals ...byte) (value int) {
 // The configuration config must be non-nil and must include
 // at least one certificate or else set GetCertificate.
 func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
+	DetectPostHandshakeRecords(config)
+
 	remoteAddr := conn.RemoteAddr().String()
 	if config.Show {
 		fmt.Printf("REALITY remoteAddr: %v\n", remoteAddr)
@@ -335,6 +337,19 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			}
 			if err != nil {
 				break
+			}
+			for _, length := range PostHandshakeRecordsLen[config][hs.clientHello.serverName] {
+				plainText := make([]byte, length-16)
+				plainText[0] = 23
+				plainText[1] = 3
+				plainText[2] = 3
+				plainText[3] = byte((length - 5) >> 8)
+				plainText[4] = byte((length - 5))
+				plainText[5] = 23
+				postHandshakeRecord := hs.c.out.cipher.(aead).Seal(plainText[:5], hs.c.out.seq[:], plainText[5:], plainText[:5])
+				hs.c.out.incSeq()
+				hs.c.write(postHandshakeRecord)
+				fmt.Printf("REALITY remoteAddr: %v\tlen(postHandshakeRecord): %v\n", remoteAddr, len(postHandshakeRecord))
 			}
 			hs.c.isHandshakeComplete.Store(true)
 			break
