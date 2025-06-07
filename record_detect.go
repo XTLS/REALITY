@@ -2,7 +2,6 @@ package reality
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/binary"
 	"io"
 	"net"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pires/go-proxyproto"
+	utls "github.com/refraction-networking/utls"
 )
 
 var lock sync.Mutex
@@ -38,13 +38,13 @@ func DetectPostHandshakeRecords(config *Config) {
 				config: config,
 				sni:    sni,
 			}
-			tlsConn := tls.Client(detectConn, &tls.Config{
+			uConn := utls.UClient(detectConn, &utls.Config{
 				ServerName: sni,
-			})
-			if err = tlsConn.Handshake(); err != nil {
+			}, utls.HelloChrome_Auto)
+			if err = uConn.Handshake(); err != nil {
 				return
 			}
-			io.Copy(io.Discard, tlsConn)
+			io.Copy(io.Discard, uConn)
 		}
 	}
 	lock.Unlock()
