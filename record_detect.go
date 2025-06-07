@@ -12,60 +12,61 @@ import (
 	utls "github.com/refraction-networking/utls"
 )
 
-var lock sync.Mutex
+var GlobalPostHandshakeRecordsLock sync.Mutex
 
-var PostHandshakeRecordsLen map[*Config]map[string][]int
+var GlobalPostHandshakeRecordsLens map[*Config]map[string][]int
 
-func DetectPostHandshakeRecords(config *Config) {
-	lock.Lock()
-	if PostHandshakeRecordsLen == nil {
-		PostHandshakeRecordsLen = make(map[*Config]map[string][]int)
+func DetectPostHandshakeRecordsLens(config *Config) map[string][]int {
+	GlobalPostHandshakeRecordsLock.Lock()
+	defer GlobalPostHandshakeRecordsLock.Unlock()
+	if GlobalPostHandshakeRecordsLens == nil {
+		GlobalPostHandshakeRecordsLens = make(map[*Config]map[string][]int)
 	}
-	if PostHandshakeRecordsLen[config] == nil {
-		PostHandshakeRecordsLen[config] = make(map[string][]int)
+	if GlobalPostHandshakeRecordsLens[config] == nil {
+		GlobalPostHandshakeRecordsLens[config] = make(map[string][]int)
 		for sni := range config.ServerNames {
 			target, err := net.Dial("tcp", config.Dest)
 			if err != nil {
-				return
+				continue
 			}
 			if config.Xver == 1 || config.Xver == 2 {
 				if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
-					return
+					continue
 				}
 			}
 			detectConn := &DetectConn{
-				Conn:   target,
-				config: config,
-				sni:    sni,
+				Conn:                     target,
+				PostHandshakeRecordsLens: GlobalPostHandshakeRecordsLens[config],
+				Sni:                      sni,
 			}
 			uConn := utls.UClient(detectConn, &utls.Config{
 				ServerName: sni,
 			}, utls.HelloChrome_Auto)
 			if err = uConn.Handshake(); err != nil {
-				return
+				continue
 			}
 			io.Copy(io.Discard, uConn)
 		}
 	}
-	lock.Unlock()
+	return GlobalPostHandshakeRecordsLens[config]
 }
 
 type DetectConn struct {
 	net.Conn
-	config  *Config
-	sni     string
-	ccsSent bool
+	PostHandshakeRecordsLens map[string][]int
+	Sni                      string
+	CcsSent                  bool
 }
 
 func (c *DetectConn) Write(b []byte) (n int, err error) {
 	if len(b) >= 3 && bytes.Equal(b[:3], []byte{20, 3, 3}) {
-		c.ccsSent = true
+		c.CcsSent = true
 	}
 	return c.Conn.Write(b)
 }
 
 func (c *DetectConn) Read(b []byte) (n int, err error) {
-	if !c.ccsSent {
+	if !c.CcsSent {
 		return c.Conn.Read(b)
 	}
 	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -73,7 +74,7 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 	for {
 		if len(data) >= 5 && bytes.Equal(data[:3], []byte{23, 3, 3}) {
 			length := int(binary.BigEndian.Uint16(data[3:5])) + 5
-			PostHandshakeRecordsLen[c.config][c.sni] = append(PostHandshakeRecordsLen[c.config][c.sni], length)
+			c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], length)
 			data = data[length:]
 		} else {
 			break
