@@ -46,20 +46,17 @@ TODO List: TODO
                         "", // If there is this item, the client shortId can be empty
                         "0123456789abcdef" // 0 to f, the length is a multiple of 2, the maximum length is 16
                     ],
-                    // The two limit below are optional for rate limiting falling REALITY connections. Default are 0 means disabled
-                    // WARNING: Enabling rate limiting may create detectable patterns for Great-Firewall!
-                    // If you're a GUI/panel/one-click script developer, RANDOMIZE these parameters!
+                    // These two limitations below are optional, for rate limiting fallback connections, bytesPerSec's default is 0, which means disabled
+                    // It's a detectable pattern, not recommended to be enabled, RANDOMIZE these parameters if you're a web-panel/one-click-script developer
                     "limitFallbackUpload": {
-                        // Limit upload for falling REALITY connections
                         "afterBytes": 0, // Start throttling after (bytes)
                         "bytesPerSec": 0, // Base speed (bytes/s)
-                        "burstBytesPerSec": 0 // Burst capacity (bytes)
+                        "burstBytesPerSec": 0 // Burst capacity (bytes/s), works only when it is larger than bytesPerSec
                     },
                     "limitFallbackDownload": {
-                        // Limit download for falling REALITY connections
                         "afterBytes": 0, // Start throttling after (bytes)
                         "bytesPerSec": 0, // Base speed (bytes/s)
-                        "burstBytesPerSec": 0 // Burst capacity (bytes)
+                        "burstBytesPerSec": 0 // Burst capacity (bytes/s), works only when it is larger than bytesPerSec
                     }
                 }
             }
