@@ -556,12 +556,8 @@ type Config struct {
 	MaxTimeDiff  time.Duration
 	ShortIds     map[[8]byte]bool
 
-	LimitFbUploadRate    float64
-	LimitFbUploadBurst   int64
-	LimitFbUploadAfter   int64
-	LimitFbDownloadRate  float64
-	LimitFbDownloadBurst int64
-	LimitFbDownloadAfter int64
+	LimitFallbackUpload   LimitFallback
+	LimitFallbackDownload LimitFallback
 
 	// Rand provides the source of entropy for nonces and RSA blinding.
 	// If Rand is nil, TLS uses the cryptographic random reader in package
@@ -953,6 +949,12 @@ func (c *Config) ticketKeyFromBytes(b [32]byte) (key ticketKey) {
 	return key
 }
 
+type LimitFallback struct {
+	BytesPerSec      float64
+	BurstBytesPerSec int64
+	AfterBytes       int64
+}
+
 // maxSessionTicketLifetime is the maximum allowed lifetime of a TLS 1.3 session
 // ticket, and the lifetime we set for all tickets we send.
 const maxSessionTicketLifetime = 7 * 24 * time.Hour
@@ -977,12 +979,8 @@ func (c *Config) Clone() *Config {
 		MaxClientVer:                        c.MaxClientVer,
 		MaxTimeDiff:                         c.MaxTimeDiff,
 		ShortIds:                            c.ShortIds,
-		LimitFbUploadRate:                   c.LimitFbUploadRate,
-		LimitFbUploadBurst:                  c.LimitFbUploadBurst,
-		LimitFbUploadAfter:                  c.LimitFbUploadAfter,
-		LimitFbDownloadRate:                 c.LimitFbDownloadRate,
-		LimitFbDownloadBurst:                c.LimitFbDownloadBurst,
-		LimitFbDownloadAfter:                c.LimitFbDownloadAfter,
+		LimitFallbackUpload:                 c.LimitFallbackUpload,
+		LimitFallbackDownload:               c.LimitFallbackDownload,
 		Rand:                                c.Rand,
 		Time:                                c.Time,
 		Certificates:                        c.Certificates,
