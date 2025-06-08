@@ -119,7 +119,7 @@ func (c *RatelimitedConn) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func NewRatelimitedConn(con net.Conn, limit *LimitFallback) *RatelimitedConn {
+func NewRatelimitedConn(conn net.Conn, limit *LimitFallback) net.Conn {
 	bytesPerSec := limit.BytesPerSec
 	burstBytesPerSec := limit.BurstBytesPerSec
 	afterBytes := limit.AfterBytes
@@ -129,7 +129,7 @@ func NewRatelimitedConn(con net.Conn, limit *LimitFallback) *RatelimitedConn {
 	}
 
 	return &RatelimitedConn{
-		Conn:       con,
+		Conn:       conn,
 		Bucket:     ratelimit.NewBucketWithRate(float64(bytesPerSec), int64(burstBytesPerSec)),
 		LimitAfter: int64(afterBytes),
 	}
