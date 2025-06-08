@@ -124,6 +124,10 @@ func NewRatelimitedConn(conn net.Conn, limit *LimitFallback) net.Conn {
 	burstBytesPerSec := limit.BurstBytesPerSec
 	afterBytes := limit.AfterBytes
 
+	if bytesPerSec == 0 {
+		return conn
+	}
+
 	if burstBytesPerSec < bytesPerSec {
 		burstBytesPerSec = bytesPerSec
 	}
@@ -263,12 +267,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if config.Show && hs.clientHello != nil {
 				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
 			}
-			if config.LimitFallbackUpload.BytesPerSec == 0 {
-				io.Copy(target, underlying)
-			} else {
-				// Limit upload speed for fallback connection
-				io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
-			}
+			// Limit upload speed for fallback connection
+			io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
 		}
 		waitGroup.Done()
 	}()
@@ -399,22 +399,14 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if hs.c.conn == conn { // if we processed the Client Hello successfully but the target did not
 				waitGroup.Add(1)
 				go func() {
-					if config.LimitFallbackUpload.BytesPerSec == 0 {
-						io.Copy(target, underlying)
-					} else {
-						// Limit upload speed for fallback connection (handshake ok but hello failed)
-						io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
-					}
+					// Limit upload speed for fallback connection (handshake ok but hello failed)
+					io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
 					waitGroup.Done()
 				}()
 			}
 			conn.Write(s2cSaved)
-			if config.LimitFallbackDownload.BytesPerSec == 0 {
-				io.Copy(underlying, target)
-			} else {
-				// Limit download speed for fallback connection
-				io.Copy(underlying, NewRatelimitedConn(target, &config.LimitFallbackDownload))
-			}
+			// Limit download speed for fallback connection
+			io.Copy(underlying, NewRatelimitedConn(target, &config.LimitFallbackDownload))
 			// Here is bidirectional direct forwarding:
 			// client ---underlying--- server ---target--- dest
 			// Call `underlying.CloseWrite()` once `io.Copy()` returned
