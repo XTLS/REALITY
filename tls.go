@@ -119,10 +119,10 @@ func (c *RatelimitedConn) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func NewRatelimitedConn(con net.Conn, config *Config) *RatelimitedConn {
-	bytesPerSec := config.LimitFallbackUpload.BytesPerSec
-	burstBytesPerSec := config.LimitFallbackUpload.BurstBytesPerSec
-	afterBytes := config.LimitFallbackUpload.AfterBytes
+func NewRatelimitedConn(con net.Conn, limit *LimitFallback) *RatelimitedConn {
+	bytesPerSec := limit.BytesPerSec
+	burstBytesPerSec := limit.BurstBytesPerSec
+	afterBytes := limit.AfterBytes
 
 	if burstBytesPerSec < bytesPerSec {
 		burstBytesPerSec = bytesPerSec
@@ -131,7 +131,7 @@ func NewRatelimitedConn(con net.Conn, config *Config) *RatelimitedConn {
 	return &RatelimitedConn{
 		Conn:       con,
 		Bucket:     ratelimit.NewBucketWithRate(float64(bytesPerSec), int64(burstBytesPerSec)),
-		LimitAfter: int64(afterBytes) - int64(burstBytesPerSec),
+		LimitAfter: int64(afterBytes),
 	}
 }
 
@@ -267,7 +267,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				io.Copy(target, underlying)
 			} else {
 				// Limit upload speed for fallback connection
-				io.Copy(target, NewRatelimitedConn(underlying, config))
+				io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
 			}
 		}
 		waitGroup.Done()
@@ -403,7 +403,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 						io.Copy(target, underlying)
 					} else {
 						// Limit upload speed for fallback connection (handshake ok but hello failed)
-						io.Copy(target, NewRatelimitedConn(underlying, config))
+						io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
 					}
 					waitGroup.Done()
 				}()
@@ -413,7 +413,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				io.Copy(underlying, target)
 			} else {
 				// Limit download speed for fallback connection
-				io.Copy(underlying, NewRatelimitedConn(target, config))
+				io.Copy(underlying, NewRatelimitedConn(target, &config.LimitFallbackDownload))
 			}
 			// Here is bidirectional direct forwarding:
 			// client ---underlying--- server ---target--- dest
