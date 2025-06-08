@@ -28,11 +28,11 @@ TODO List: TODO
                 "decryption": "none"
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw",
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // 选填，若为 true，输出调试信息
-                    "dest": "example.com:443", // 必填，格式同 VLESS fallbacks 的 dest
+                    "target": "example.com:443", // 必填，格式同 VLESS fallbacks 的 dest
                     "xver": 0, // 选填，格式同 VLESS fallbacks 的 xver
                     "serverNames": [ // 必填，客户端可用的 serverName 列表，暂不支持 * 通配符
                         "example.com",
@@ -96,7 +96,7 @@ REALITY 的下一个主要目标是“**预先构建模式**”，即提前采�
                 ]
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw",
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // 选填，若为 true，输出调试信息

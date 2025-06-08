@@ -28,11 +28,11 @@ TODO List: TODO
                 "decryption": "none"
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw",
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // Optional, if true, output debugging information
-                    "dest": "example.com:443", // Required, the format is the same as the dest of VLESS fallbacks
+                    "target": "example.com:443", // Required, the format is the same as the dest of VLESS fallbacks
                     "xver": 0, // Optional, the format is the same as xver of VLESS fallbacks
                     "serverNames": [ // Required, the acceptable serverName list, does not support * wildcards for now
                         "example.com",
@@ -96,7 +96,7 @@ The next main goal of REALITY is "**pre-built mode**", that is, to collect and b
                 ]
             },
             "streamSettings": {
-                "network": "tcp",
+                "network": "raw",
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // Optional, if true, output debugging information
@@ -123,3 +123,7 @@ The REALITY client can perfectly distinguish temporary trusted certificates, rea
 1. When the temporary trusted certificate is received, the proxy connection is available and everything is business as usual
 2. When the real certificate is received, enter the crawler mode (spiderX)
 3. When an invalid certificate is received, TLS alert will be sent and the connection will be disconnected
+
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/XTLS/REALITY.svg)](https://starchart.cc/XTLS/REALITY)
