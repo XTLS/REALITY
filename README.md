@@ -51,12 +51,12 @@ TODO List: TODO
                     "limitFallbackUpload": {
                         "afterBytes": 0, // 传输指定字节后开始限速
                         "bytesPerSec": 0, // 基准速率（字节/秒）
-                        "burstBytesPerSec": 0 // 突发速率（字节/秒）
+                        "burstBytesPerSec": 0 // 突发速率（字节/秒），大于 bytesPerSec 时生效
                     },
                     "limitFallbackDownload": {
                         "afterBytes": 0, // 传输指定字节后开始限速
                         "bytesPerSec": 0, // 基准速率（字节/秒）
-                        "burstBytesPerSec": 0 // 突发速率（字节/秒）
+                        "burstBytesPerSec": 0 // 突发速率（字节/秒），大于 bytesPerSec 时生效
                     }
                 }
             }
