@@ -50,6 +50,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/pires/go-proxyproto"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
@@ -98,6 +99,41 @@ func (c *MirrorConn) SetReadDeadline(t time.Time) error {
 
 func (c *MirrorConn) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+type RatelimitedConn struct {
+	net.Conn
+	After  int64
+	Bucket *ratelimit.Bucket
+}
+
+func (c *RatelimitedConn) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	if n != 0 {
+		if c.After > 0 {
+			c.After -= int64(n)
+		} else {
+			c.Bucket.Wait(int64(n))
+		}
+	}
+	return n, err
+}
+
+func NewRatelimitedConn(conn net.Conn, limit *LimitFallback) net.Conn {
+	if limit.BytesPerSec == 0 {
+		return conn
+	}
+
+	burstBytesPerSec := limit.BurstBytesPerSec
+	if burstBytesPerSec < limit.BytesPerSec {
+		burstBytesPerSec = limit.BytesPerSec
+	}
+
+	return &RatelimitedConn{
+		Conn:   conn,
+		After:  int64(limit.AfterBytes),
+		Bucket: ratelimit.NewBucketWithRate(float64(limit.BytesPerSec), int64(burstBytesPerSec)),
+	}
 }
 
 var (
@@ -228,7 +264,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if config.Show && hs.clientHello != nil {
 				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
 			}
-			io.Copy(target, underlying)
+			io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
 		}
 		waitGroup.Done()
 	}()
@@ -359,12 +395,12 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if hs.c.conn == conn { // if we processed the Client Hello successfully but the target did not
 				waitGroup.Add(1)
 				go func() {
-					io.Copy(target, underlying)
+					io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
 					waitGroup.Done()
 				}()
 			}
 			conn.Write(s2cSaved)
-			io.Copy(underlying, target)
+			io.Copy(underlying, NewRatelimitedConn(target, &config.LimitFallbackDownload))
 			// Here is bidirectional direct forwarding:
 			// client ---underlying--- server ---target--- dest
 			// Call `underlying.CloseWrite()` once `io.Copy()` returned

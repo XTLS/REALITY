@@ -45,7 +45,19 @@ TODO List: TODO
                     "shortIds": [ // Required, the acceptable shortId list, which can be used to distinguish different clients
                         "", // If there is this item, the client shortId can be empty
                         "0123456789abcdef" // 0 to f, the length is a multiple of 2, the maximum length is 16
-                    ]
+                    ],
+                    // These two limitations below are optional, for rate limiting fallback connections, bytesPerSec's default is 0, which means disabled
+                    // It's a detectable pattern, not recommended to be enabled, RANDOMIZE these parameters if you're a web-panel/one-click-script developer
+                    "limitFallbackUpload": {
+                        "afterBytes": 0, // Start throttling after (bytes)
+                        "bytesPerSec": 0, // Base speed (bytes/s)
+                        "burstBytesPerSec": 0 // Burst capacity (bytes/s), works only when it is larger than bytesPerSec
+                    },
+                    "limitFallbackDownload": {
+                        "afterBytes": 0, // Start throttling after (bytes)
+                        "bytesPerSec": 0, // Base speed (bytes/s)
+                        "burstBytesPerSec": 0 // Burst capacity (bytes/s), works only when it is larger than bytesPerSec
+                    }
                 }
             }
         }

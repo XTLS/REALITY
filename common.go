@@ -537,6 +537,12 @@ const (
 	RenegotiateFreelyAsClient
 )
 
+type LimitFallback struct {
+	AfterBytes       uint64
+	BytesPerSec      uint64
+	BurstBytesPerSec uint64
+}
+
 // A Config structure is used to configure a TLS client or server.
 // After one has been passed to a TLS function it must not be
 // modified. A Config may be reused; the tls package will also not
@@ -555,6 +561,9 @@ type Config struct {
 	MaxClientVer []byte
 	MaxTimeDiff  time.Duration
 	ShortIds     map[[8]byte]bool
+
+	LimitFallbackUpload   LimitFallback
+	LimitFallbackDownload LimitFallback
 
 	// Rand provides the source of entropy for nonces and RSA blinding.
 	// If Rand is nil, TLS uses the cryptographic random reader in package
@@ -913,7 +922,6 @@ type EncryptedClientHelloKey struct {
 	SendAsRetry bool
 }
 
-
 const (
 	// ticketKeyLifetime is how long a ticket key remains valid and can be used to
 	// resume a client connection.
@@ -971,6 +979,8 @@ func (c *Config) Clone() *Config {
 		MaxClientVer:                        c.MaxClientVer,
 		MaxTimeDiff:                         c.MaxTimeDiff,
 		ShortIds:                            c.ShortIds,
+		LimitFallbackUpload:                 c.LimitFallbackUpload,
+		LimitFallbackDownload:               c.LimitFallbackDownload,
 		Rand:                                c.Rand,
 		Time:                                c.Time,
 		Certificates:                        c.Certificates,
