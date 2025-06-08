@@ -46,19 +46,17 @@ TODO List: TODO
                         "", // 若有此项，客户端 shortId 可为空
                         "0123456789abcdef" // 0 到 f，长度为 2 的倍数，长度上限为 16
                     ],
-                    // 下列两个 limit 为选填，可对回落的 REALITY 连接限速。默认为 0 即不启用
-                    // 警告：启用限速可能会引入新的特征被 GFW 探测到！如果您是GUI/面板/一键脚本开发者，请务必让这些参数随机化！
+                    // 下列两个 limit 为选填，可对未通过验证的回落连接限速，bytesPerSec 默认为 0 即不启用
+                    // 回落限速是一种特征，不建议启用，如果您是面板/一键脚本开发者，务必让这些参数随机化
                     "limitFallbackUpload": {
-                        // 限制回落上行
                         "afterBytes": 0, // 传输指定字节后开始限速
-                        "bytesPerSec": 0, // 基准速率 (字节/秒)
-                        "burstBytesPerSec": 0 // 突发速率 (字节/秒)
+                        "bytesPerSec": 0, // 基准速率（字节/秒）
+                        "burstBytesPerSec": 0 // 突发速率（字节/秒）
                     },
                     "limitFallbackDownload": {
-                        // 限制回落下行
                         "afterBytes": 0, // 传输指定字节后开始限速
-                        "bytesPerSec": 0, // 基准速率 (字节/秒)
-                        "burstBytesPerSec": 0 // 突发速率 (字节/秒)
+                        "bytesPerSec": 0, // 基准速率（字节/秒）
+                        "burstBytesPerSec": 0 // 突发速率（字节/秒）
                     }
                 }
             }
