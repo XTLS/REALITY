@@ -538,9 +538,9 @@ const (
 )
 
 type LimitFallback struct {
-	AfterBytes       int64
-	BytesPerSec      int64
-	BurstBytesPerSec int64
+	AfterBytes       uint64
+	BytesPerSec      uint64
+	BurstBytesPerSec uint64
 }
 
 // A Config structure is used to configure a TLS client or server.
