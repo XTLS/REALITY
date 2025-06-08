@@ -43,7 +43,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"os"
 	"runtime"
@@ -120,11 +119,11 @@ func (c *RatelimitedConn) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func NewBucketWithRate(bytesPerSec float64, burstBytesPerSec int64) *ratelimit.Bucket {
-	if burstBytesPerSec < int64(math.Ceil(bytesPerSec)) {
-		burstBytesPerSec = int64(math.Ceil(bytesPerSec))
+func NewBucketWithRate(bytesPerSec int64, burstBytesPerSec int64) *ratelimit.Bucket {
+	if burstBytesPerSec < bytesPerSec {
+		burstBytesPerSec = bytesPerSec
 	}
-	return ratelimit.NewBucketWithRate(bytesPerSec, burstBytesPerSec)
+	return ratelimit.NewBucketWithRate(float64(bytesPerSec), burstBytesPerSec)
 }
 
 var (

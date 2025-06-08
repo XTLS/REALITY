@@ -539,7 +539,7 @@ const (
 
 type LimitFallback struct {
 	AfterBytes       int64
-	BytesPerSec      float64
+	BytesPerSec      int64
 	BurstBytesPerSec int64
 }
 
