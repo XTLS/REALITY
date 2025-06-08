@@ -43,6 +43,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"runtime"
@@ -117,6 +118,13 @@ func (c *RatelimitedConn) Write(b []byte) (int, error) {
 		}
 	}
 	return n, err
+}
+
+func NewBucketWithRate(bytesPerSec float64, burstBytesPerSec int64) *ratelimit.Bucket {
+	if burstBytesPerSec < int64(math.Ceil(bytesPerSec)) {
+		burstBytesPerSec = int64(math.Ceil(bytesPerSec))
+	}
+	return ratelimit.NewBucketWithRate(bytesPerSec, burstBytesPerSec)
 }
 
 var (
@@ -253,7 +261,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				// Limit upload speed for fallback connection
 				io.Copy(&RatelimitedConn{
 					Conn:       target,
-					Bucket:     ratelimit.NewBucketWithRate(config.LimitFallbackUpload.BytesPerSec, config.LimitFallbackUpload.BurstBytesPerSec),
+					Bucket:     NewBucketWithRate(config.LimitFallbackUpload.BytesPerSec, config.LimitFallbackUpload.BurstBytesPerSec),
 					LimitAfter: config.LimitFallbackUpload.AfterBytes - config.LimitFallbackUpload.BurstBytesPerSec,
 				}, underlying)
 			}
@@ -393,7 +401,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 						// Limit upload speed for fallback connection (handshake ok but hello failed)
 						io.Copy(&RatelimitedConn{
 							Conn:       target,
-							Bucket:     ratelimit.NewBucketWithRate(config.LimitFallbackUpload.BytesPerSec, config.LimitFallbackUpload.BurstBytesPerSec),
+							Bucket:     NewBucketWithRate(config.LimitFallbackUpload.BytesPerSec, config.LimitFallbackUpload.BurstBytesPerSec),
 							LimitAfter: config.LimitFallbackUpload.AfterBytes - config.LimitFallbackUpload.BurstBytesPerSec,
 						}, underlying)
 					}
@@ -407,7 +415,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				// Limit download speed for fallback connection
 				io.Copy(&RatelimitedConn{
 					Conn:       underlying,
-					Bucket:     ratelimit.NewBucketWithRate(config.LimitFallbackDownload.BytesPerSec, config.LimitFallbackDownload.BurstBytesPerSec),
+					Bucket:     NewBucketWithRate(config.LimitFallbackDownload.BytesPerSec, config.LimitFallbackDownload.BurstBytesPerSec),
 					LimitAfter: config.LimitFallbackDownload.AfterBytes - config.LimitFallbackDownload.BurstBytesPerSec,
 				}, target)
 			}
