@@ -45,7 +45,22 @@ TODO List: TODO
                     "shortIds": [ // Required, the acceptable shortId list, which can be used to distinguish different clients
                         "", // If there is this item, the client shortId can be empty
                         "0123456789abcdef" // 0 to f, the length is a multiple of 2, the maximum length is 16
-                    ]
+                    ],
+                    // The two limit below are optional for rate limiting falling REALITY connections. Default are 0 means disabled
+                    // WARNING: Enabling rate limiting may create detectable patterns for Great-Firewall!
+                    // If you're a GUI/panel/one-click script developer, RANDOMIZE these parameters!
+                    "limitFallbackUpload": {
+                        // Limit upload for falling REALITY connections
+                        "afterBytes": 0, // Start throttling after (bytes)
+                        "bytesPerSec": 0, // Base speed (bytes/s)
+                        "burstBytesPerSec": 0 // Burst capacity (bytes)
+                    },
+                    "limitFallbackDownload": {
+                        // Limit download for falling REALITY connections
+                        "afterBytes": 0, // Start throttling after (bytes)
+                        "bytesPerSec": 0, // Base speed (bytes/s)
+                        "burstBytesPerSec": 0 // Burst capacity (bytes)
+                    }
                 }
             }
         }
