@@ -52,12 +52,12 @@ TODO List: TODO
           // The six limit below are optional for rate limiting falling REALITY connections. Default are 0 means disabled
           // WARNING: Enabling rate limiting may create detectable patterns for GFW!
           // If you're a GUI/panel/one-click script developer, RANDOMIZE these parameters!
-          limitUploadRate: 0, // Base upload speed (bytes/s)
-          limitUploadBurst: 0, // Upload burst capacity (bytes)
-          limitUploadAfter: 0, // Start upload throttling after (bytes)
-          limitDownloadRate: 0, // Base download speed (bytes/s)
-          limitDownloadBurst: 0, // Download burst capacity (bytes)
-          limitDownloadAfter: 0, // Start download throttling after (bytes)
+          limitFbUploadRate: 0, // Base upload speed (bytes/s)
+          limitFbUploadBurst: 0, // Upload burst capacity (bytes)
+          limitFbUploadAfter: 0, // Start upload throttling after (bytes)
+          limitFbDownloadRate: 0, // Base download speed (bytes/s)
+          limitFbDownloadBurst: 0, // Download burst capacity (bytes)
+          limitFbDownloadAfter: 0, // Start download throttling after (bytes)
         },
       },
     },

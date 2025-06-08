@@ -51,12 +51,12 @@ TODO List: TODO
           ],
           // 下列六个 limit 为选填，可对回落的 REALITY 连接限速。默认为 0 即不启用
           // 警告：启用限速可能会引入新的特征被GFW探测到！如果您是GUI/面板/一键脚本开发者，请务必让这些参数随机化！
-          limitUploadRate: 0, // 上行基准速率 (字节/秒)
-          limitUploadBurst: 0, // 上行突发速率 (字节/秒)
-          limitUploadAfter: 0, // 上行指定字节后开始限速
-          limitDownloadRate: 0, // 下行基准速率 (字节/秒)
-          limitDownloadBurst: 0, // 下行突发速率 (字节/秒)
-          limitDownloadAfter: 0, // 下行指定字节后开始限速
+          limitFbUploadRate: 0, // 上行基准速率 (字节/秒)
+          limitFbUploadBurst: 0, // 上行突发速率 (字节/秒)
+          limitFbUploadAfter: 0, // 上行指定字节后开始限速
+          limitFbDownloadRate: 0, // 下行基准速率 (字节/秒)
+          limitFbDownloadBurst: 0, // 下行突发速率 (字节/秒)
+          limitFbDownloadAfter: 0, // 下行指定字节后开始限速
         },
       },
     },
