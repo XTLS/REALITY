@@ -103,17 +103,17 @@ func (c *MirrorConn) SetWriteDeadline(t time.Time) error {
 
 type RatelimitedConn struct {
 	net.Conn
-	Bucket     *ratelimit.Bucket
-	LimitAfter int64
+	After  int64
+	Bucket *ratelimit.Bucket
 }
 
 func (c *RatelimitedConn) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
 	if n != 0 {
-		if c.LimitAfter <= 0 {
-			c.Bucket.Wait(int64(n))
+		if c.After > 0 {
+			c.After -= int64(n)
 		} else {
-			c.LimitAfter -= int64(n)
+			c.Bucket.Wait(int64(n))
 		}
 	}
 	return n, err
@@ -130,9 +130,9 @@ func NewRatelimitedConn(conn net.Conn, limit *LimitFallback) net.Conn {
 	}
 
 	return &RatelimitedConn{
-		Conn:       conn,
-		Bucket:     ratelimit.NewBucketWithRate(float64(limit.BytesPerSec), int64(burstBytesPerSec)),
-		LimitAfter: int64(limit.AfterBytes),
+		Conn:   conn,
+		After:  int64(limit.AfterBytes),
+		Bucket: ratelimit.NewBucketWithRate(float64(limit.BytesPerSec), int64(burstBytesPerSec)),
 	}
 }
 
