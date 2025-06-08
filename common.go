@@ -537,6 +537,12 @@ const (
 	RenegotiateFreelyAsClient
 )
 
+type LimitFallback struct {
+	AfterBytes       int64
+	BytesPerSec      float64
+	BurstBytesPerSec int64
+}
+
 // A Config structure is used to configure a TLS client or server.
 // After one has been passed to a TLS function it must not be
 // modified. A Config may be reused; the tls package will also not
@@ -947,12 +953,6 @@ func (c *Config) ticketKeyFromBytes(b [32]byte) (key ticketKey) {
 	copy(key.hmacKey[:], hashed[legacyTicketKeyNameLen+len(key.aesKey):])
 	key.created = c.time()
 	return key
-}
-
-type LimitFallback struct {
-	BytesPerSec      float64
-	BurstBytesPerSec int64
-	AfterBytes       int64
 }
 
 // maxSessionTicketLifetime is the maximum allowed lifetime of a TLS 1.3 session
