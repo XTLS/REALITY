@@ -162,7 +162,7 @@ func Value(vals ...byte) (value int) {
 // The configuration config must be non-nil and must include
 // at least one certificate or else set GetCertificate.
 func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
-	postHandshakeRecordsLens := DetectPostHandshakeRecordsLens(config)
+	postHandshakeRecordsLens := DetectPostHandshakeRecordsLens(config, "hellochrome_131")
 
 	remoteAddr := conn.RemoteAddr().String()
 	if config.Show {
@@ -473,7 +473,7 @@ func (l *listener) Accept() (net.Conn, error) {
 // The configuration config must be non-nil and must include
 // at least one certificate or else set GetCertificate.
 func NewListener(inner net.Listener, config *Config) net.Listener {
-	go DetectPostHandshakeRecordsLens(config)
+	go InitAllRecords(config)
 	l := new(listener)
 	l.Listener = inner
 	l.config = config
