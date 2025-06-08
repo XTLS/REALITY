@@ -3,7 +3,7 @@
 ### THE NEXT FUTURE
 
 Server side implementation of REALITY protocol, a fork of package tls in latest [Go](https://github.com/golang/go/commits/master/src/crypto/tls).
-For client side, please follow https://github.com/XTLS/Xray-core/blob/main/transport/internet/reality/reality.go.  
+For client side, please follow https://github.com/XTLS/Xray-core/blob/main/transport/internet/reality/reality.go.
 
 TODO List: TODO
 
@@ -13,98 +13,102 @@ TODO List: TODO
 
 ```json5
 {
-    "inbounds": [ // 服务端入站配置
-        {
-            "listen": "0.0.0.0",
-            "port": 443,
-            "protocol": "vless",
-            "settings": {
-                "clients": [
-                    {
-                        "id": "", // 必填，执行 ./xray uuid 生成，或 1-30 字节的字符串
-                        "flow": "xtls-rprx-vision" // 选填，若有，客户端必须启用 XTLS
-                    }
-                ],
-                "decryption": "none"
-            },
-            "streamSettings": {
-                "network": "tcp",
-                "security": "reality",
-                "realitySettings": {
-                    "show": false, // 选填，若为 true，输出调试信息
-                    "dest": "example.com:443", // 必填，格式同 VLESS fallbacks 的 dest
-                    "xver": 0, // 选填，格式同 VLESS fallbacks 的 xver
-                    "serverNames": [ // 必填，客户端可用的 serverName 列表，暂不支持 * 通配符
-                        "example.com",
-                        "www.example.com"
-                    ],
-                    "privateKey": "", // 必填，执行 ./xray x25519 生成
-                    "minClientVer": "", // 选填，客户端 Xray 最低版本，格式为 x.y.z
-                    "maxClientVer": "", // 选填，客户端 Xray 最高版本，格式为 x.y.z
-                    "maxTimeDiff": 0, // 选填，允许的最大时间差，单位为毫秒
-                    "shortIds": [ // 必填，客户端可用的 shortId 列表，可用于区分不同的客户端
-                        "", // 若有此项，客户端 shortId 可为空
-                        "0123456789abcdef" // 0 到 f，长度为 2 的倍数，长度上限为 16
-                    ],
-                    // 下列六个 limit 为选填，可对回落的 REALITY 连接限速。默认为 0 即不启用
-                    // 警告：启用限速可能会引入新的特征被GFW探测到！如果您是GUI/面板/一键脚本开发者，请务必让这些参数随机化！
-                    "limitUploadRate": 0, // 上行基准速率 (字节/秒)
-                    "limitUploadBrust": 0, // 上行突发速率 (字节/秒)
-                    "limitUploadAfter": 0, // 上行指定字节后开始限速
-                    "limitDownloadRate": 0, // 下行基准速率 (字节/秒)
-                    "limitDownloadBrust": 0, // 下行突发速率 (字节/秒)
-                    "limitDownloadAfter": 0 // 下行指定字节后开始限速
-                }
-            }
-        }
-    ]
+  inbounds: [
+    // 服务端入站配置
+    {
+      listen: "0.0.0.0",
+      port: 443,
+      protocol: "vless",
+      settings: {
+        clients: [
+          {
+            id: "", // 必填，执行 ./xray uuid 生成，或 1-30 字节的字符串
+            flow: "xtls-rprx-vision", // 选填，若有，客户端必须启用 XTLS
+          },
+        ],
+        decryption: "none",
+      },
+      streamSettings: {
+        network: "tcp",
+        security: "reality",
+        realitySettings: {
+          show: false, // 选填，若为 true，输出调试信息
+          dest: "example.com:443", // 必填，格式同 VLESS fallbacks 的 dest
+          xver: 0, // 选填，格式同 VLESS fallbacks 的 xver
+          serverNames: [
+            // 必填，客户端可用的 serverName 列表，暂不支持 * 通配符
+            "example.com",
+            "www.example.com",
+          ],
+          privateKey: "", // 必填，执行 ./xray x25519 生成
+          minClientVer: "", // 选填，客户端 Xray 最低版本，格式为 x.y.z
+          maxClientVer: "", // 选填，客户端 Xray 最高版本，格式为 x.y.z
+          maxTimeDiff: 0, // 选填，允许的最大时间差，单位为毫秒
+          shortIds: [
+            // 必填，客户端可用的 shortId 列表，可用于区分不同的客户端
+            "", // 若有此项，客户端 shortId 可为空
+            "0123456789abcdef", // 0 到 f，长度为 2 的倍数，长度上限为 16
+          ],
+          // 下列六个 limit 为选填，可对回落的 REALITY 连接限速。默认为 0 即不启用
+          // 警告：启用限速可能会引入新的特征被GFW探测到！如果您是GUI/面板/一键脚本开发者，请务必让这些参数随机化！
+          limitUploadRate: 0, // 上行基准速率 (字节/秒)
+          limitUploadBurst: 0, // 上行突发速率 (字节/秒)
+          limitUploadAfter: 0, // 上行指定字节后开始限速
+          limitDownloadRate: 0, // 下行基准速率 (字节/秒)
+          limitDownloadBurst: 0, // 下行突发速率 (字节/秒)
+          limitDownloadAfter: 0, // 下行指定字节后开始限速
+        },
+      },
+    },
+  ],
 }
 ```
 
-若用 REALITY 取代 TLS，**可消除服务端 TLS 指纹特征**，仍有前向保密性等，**且证书链攻击无效，安全性超越常规 TLS**  
-**可以指向别人的网站**，无需自己买域名、配置 TLS 服务端，更方便，**实现向中间人呈现指定 SNI 的全程真实 TLS**  
+若用 REALITY 取代 TLS，**可消除服务端 TLS 指纹特征**，仍有前向保密性等，**且证书链攻击无效，安全性超越常规 TLS**
+**可以指向别人的网站**，无需自己买域名、配置 TLS 服务端，更方便，**实现向中间人呈现指定 SNI 的全程真实 TLS**
 
-通常代理用途，目标网站最低标准：**国外网站，支持 TLSv1.3 与 H2，域名非跳转用**（主域名可能被用于跳转到 www）  
-加分项：IP 相近（更像，且延迟低），Server Hello 后的握手消息一起加密（如 dl.google.com），有 OCSP Stapling  
-配置加分项：**禁回国流量，TCP/80、UDP/443 也转发**（REALITY 对外表现即为端口转发，目标 IP 冷门或许更好）  
+通常代理用途，目标网站最低标准：**国外网站，支持 TLSv1.3 与 H2，域名非跳转用**（主域名可能被用于跳转到 www）
+加分项：IP 相近（更像，且延迟低），Server Hello 后的握手消息一起加密（如 dl.google.com），有 OCSP Stapling
+配置加分项：**禁回国流量，TCP/80、UDP/443 也转发**（REALITY 对外表现即为端口转发，目标 IP 冷门或许更好）
 
-**REALITY 也可以搭配 XTLS 以外的代理协议使用**，但不建议这样做，因为它们存在明显且已被针对的 TLS in TLS 特征  
-REALITY 的下一个主要目标是“**预先构建模式**”，即提前采集目标网站特征，XTLS 的下一个主要目标是 **0-RTT**  
+**REALITY 也可以搭配 XTLS 以外的代理协议使用**，但不建议这样做，因为它们存在明显且已被针对的 TLS in TLS 特征
+REALITY 的下一个主要目标是“**预先构建模式**”，即提前采集目标网站特征，XTLS 的下一个主要目标是 **0-RTT**
 
 ```json5
 {
-    "outbounds": [ // 客户端出站配置
-        {
-            "protocol": "vless",
-            "settings": {
-                "vnext": [
-                    {
-                        "address": "", // 服务端的域名或 IP
-                        "port": 443,
-                        "users": [
-                            {
-                                "id": "", // 与服务端一致
-                                "flow": "xtls-rprx-vision", // 与服务端一致
-                                "encryption": "none"
-                            }
-                        ]
-                    }
-                ]
-            },
-            "streamSettings": {
-                "network": "tcp",
-                "security": "reality",
-                "realitySettings": {
-                    "show": false, // 选填，若为 true，输出调试信息
-                    "fingerprint": "chrome", // 必填，使用 uTLS 库模拟客户端 TLS 指纹
-                    "serverName": "", // 服务端 serverNames 之一
-                    "publicKey": "", // 服务端私钥对应的公钥
-                    "shortId": "", // 服务端 shortIds 之一
-                    "spiderX": "" // 爬虫初始路径与参数，建议每个客户端不同
-                }
-            }
-        }
-    ]
+  outbounds: [
+    // 客户端出站配置
+    {
+      protocol: "vless",
+      settings: {
+        vnext: [
+          {
+            address: "", // 服务端的域名或 IP
+            port: 443,
+            users: [
+              {
+                id: "", // 与服务端一致
+                flow: "xtls-rprx-vision", // 与服务端一致
+                encryption: "none",
+              },
+            ],
+          },
+        ],
+      },
+      streamSettings: {
+        network: "tcp",
+        security: "reality",
+        realitySettings: {
+          show: false, // 选填，若为 true，输出调试信息
+          fingerprint: "chrome", // 必填，使用 uTLS 库模拟客户端 TLS 指纹
+          serverName: "", // 服务端 serverNames 之一
+          publicKey: "", // 服务端私钥对应的公钥
+          shortId: "", // 服务端 shortIds 之一
+          spiderX: "", // 爬虫初始路径与参数，建议每个客户端不同
+        },
+      },
+    },
+  ],
 }
 ```
 

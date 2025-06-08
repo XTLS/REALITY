@@ -247,14 +247,14 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if config.Show && hs.clientHello != nil {
 				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
 			}
-			if config.LimitUploadRate == 0 || config.LimitUploadBrust == 0 {
+			if config.LimitUploadRate == 0 || config.LimitUploadBurst == 0 {
 				io.Copy(target, underlying)
 			} else {
 				// Limit upload speed for fallback connection
 				io.Copy(target, &RatelimitedConn{
 					Conn:       underlying,
-					Bucket:     ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
-					LimitAfter: config.LimitUploadAfter - config.LimitUploadBrust,
+					Bucket:     ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBurst),
+					LimitAfter: config.LimitUploadAfter - config.LimitUploadBurst,
 				})
 			}
 		}
@@ -387,28 +387,28 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if hs.c.conn == conn { // if we processed the Client Hello successfully but the target did not
 				waitGroup.Add(1)
 				go func() {
-					if config.LimitUploadRate == 0 || config.LimitUploadBrust == 0 {
+					if config.LimitUploadRate == 0 || config.LimitUploadBurst == 0 {
 						io.Copy(target, underlying)
 					} else {
 						// Limit upload speed for fallback connection (handshake ok but hello failed)
 						io.Copy(target, &RatelimitedConn{
 							Conn:       underlying,
-							Bucket:     ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBrust),
-							LimitAfter: config.LimitUploadAfter - config.LimitUploadBrust,
+							Bucket:     ratelimit.NewBucketWithRate(config.LimitUploadRate, config.LimitUploadBurst),
+							LimitAfter: config.LimitUploadAfter - config.LimitUploadBurst,
 						})
 					}
 					waitGroup.Done()
 				}()
 			}
 			conn.Write(s2cSaved)
-			if config.LimitDownloadRate == 0 || config.LimitDownloadBrust == 0 {
+			if config.LimitDownloadRate == 0 || config.LimitDownloadBurst == 0 {
 				io.Copy(underlying, target)
 			} else {
 				// Limit download speed for fallback connection
 				io.Copy(underlying, &RatelimitedConn{
 					Conn:       target,
-					Bucket:     ratelimit.NewBucketWithRate(config.LimitDownloadRate, config.LimitDownloadBrust),
-					LimitAfter: config.LimitDownloadAfter - config.LimitDownloadBrust,
+					Bucket:     ratelimit.NewBucketWithRate(config.LimitDownloadRate, config.LimitDownloadBurst),
+					LimitAfter: config.LimitDownloadAfter - config.LimitDownloadBurst,
 				})
 			}
 			// Here is bidirectional direct forwarding:

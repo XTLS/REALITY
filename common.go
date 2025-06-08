@@ -557,10 +557,10 @@ type Config struct {
 	ShortIds     map[[8]byte]bool
 
 	LimitUploadRate    float64
-	LimitUploadBrust   int64
+	LimitUploadBurst   int64
 	LimitUploadAfter   int64
 	LimitDownloadRate  float64
-	LimitDownloadBrust int64
+	LimitDownloadBurst int64
 	LimitDownloadAfter int64
 
 	// Rand provides the source of entropy for nonces and RSA blinding.
@@ -920,7 +920,6 @@ type EncryptedClientHelloKey struct {
 	SendAsRetry bool
 }
 
-
 const (
 	// ticketKeyLifetime is how long a ticket key remains valid and can be used to
 	// resume a client connection.
@@ -979,10 +978,10 @@ func (c *Config) Clone() *Config {
 		MaxTimeDiff:                         c.MaxTimeDiff,
 		ShortIds:                            c.ShortIds,
 		LimitUploadRate:                     c.LimitUploadRate,
-		LimitUploadBrust:                    c.LimitUploadBrust,
+		LimitUploadBurst:                    c.LimitUploadBurst,
 		LimitUploadAfter:                    c.LimitUploadAfter,
 		LimitDownloadRate:                   c.LimitDownloadRate,
-		LimitDownloadBrust:                  c.LimitDownloadBrust,
+		LimitDownloadBurst:                  c.LimitDownloadBurst,
 		LimitDownloadAfter:                  c.LimitDownloadAfter,
 		Rand:                                c.Rand,
 		Time:                                c.Time,
