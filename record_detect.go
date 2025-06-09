@@ -50,7 +50,7 @@ func DetectPostHandshakeRecordsLens(config *Config, fingerprint string) map[stri
 			}
 			uConn := utls.UClient(detectConn, &utls.Config{
 				ServerName: sni,
-			}, utls.HelloChrome_Auto)
+			}, *ModernFingerprints[fingerprint])
 			if err = uConn.Handshake(); err != nil {
 				continue
 			}
@@ -115,8 +115,8 @@ var ModernFingerprints = map[string]*utls.ClientHelloID{
 	"hellosafari_16_0":        &utls.HelloSafari_16_0,
 	"hello360_11_0":           &utls.Hello360_11_0,
 	"helloqq_11_1":            &utls.HelloQQ_11_1,
-	// "hellogolang":            &utls.HelloGolang,
-	// "hellorandomized":        &utls.HelloRandomized,
-	// "hellorandomizedalpn":    &utls.HelloRandomizedALPN,
-	// "hellorandomizednoalpn":  &utls.HelloRandomizedNoALPN,
+	"hellogolang":            &utls.HelloGolang,
+	"hellorandomized":        &utls.HelloRandomized,
+	"hellorandomizedalpn":    &utls.HelloRandomizedALPN,
+	"hellorandomizednoalpn":  &utls.HelloRandomizedNoALPN,
 }
