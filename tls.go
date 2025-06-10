@@ -385,7 +385,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				postHandshakeRecord := hs.c.out.cipher.(aead).Seal(plainText[:5], hs.c.out.seq[:], plainText[5:], plainText[:5])
 				hs.c.out.incSeq()
 				hs.c.write(postHandshakeRecord)
-				fmt.Printf("REALITY remoteAddr: %v\tlen(postHandshakeRecord): %v\n", remoteAddr, len(postHandshakeRecord))
+				if config.Show {
+					fmt.Printf("REALITY remoteAddr: %v\tlen(postHandshakeRecord): %v\n", remoteAddr, len(postHandshakeRecord))
+				}
 			}
 			hs.c.isHandshakeComplete.Store(true)
 			break
