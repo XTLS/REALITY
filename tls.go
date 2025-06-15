@@ -375,6 +375,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				break
 			}
 			for _, length := range postHandshakeRecordsLens[hs.clientHello.serverName] {
+				if length == 0 {
+					break;
+				}
 				plainText := make([]byte, length-16)
 				plainText[0] = 23
 				plainText[1] = 3

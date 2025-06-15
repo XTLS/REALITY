@@ -26,36 +26,42 @@ func InitAllRecords(config *Config) {
 
 func DetectPostHandshakeRecordsLens(config *Config, fingerprint string) map[string][]int {
 	GlobalPostHandshakeRecordsLock.Lock()
-	defer GlobalPostHandshakeRecordsLock.Unlock()
 	if GlobalPostHandshakeRecordsLens == nil {
 		GlobalPostHandshakeRecordsLens = make(map[string]map[string][]int)
 	}
 	if GlobalPostHandshakeRecordsLens[fingerprint] == nil {
 		GlobalPostHandshakeRecordsLens[fingerprint] = make(map[string][]int)
-		for sni := range config.ServerNames {
-			target, err := net.Dial("tcp", config.Dest)
-			if err != nil {
-				continue
-			}
-			if config.Xver == 1 || config.Xver == 2 {
-				if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
-					continue
-				}
-			}
-			detectConn := &DetectConn{
-				Conn:                     target,
-				PostHandshakeRecordsLens: GlobalPostHandshakeRecordsLens[fingerprint],
-				Sni:                      sni,
-				Fingerprint:              fingerprint,
-			}
-			uConn := utls.UClient(detectConn, &utls.Config{
-				ServerName: sni,
-			}, *ModernFingerprints[fingerprint])
-			if err = uConn.Handshake(); err != nil {
-				continue
-			}
-			io.Copy(io.Discard, uConn)
+	}
+	var pending []string
+	for sni := range config.ServerNames {
+		if (GlobalPostHandshakeRecordsLens[fingerprint][sni] == nil) {
+			pending = append(pending, sni)
 		}
+	}
+	GlobalPostHandshakeRecordsLock.Unlock()
+	for _, sni := range pending {
+		target, err := net.Dial("tcp", config.Dest)
+		if err != nil {
+			continue
+		}
+		if config.Xver == 1 || config.Xver == 2 {
+			if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
+				continue
+			}
+		}
+		detectConn := &DetectConn{
+			Conn:                     target,
+			PostHandshakeRecordsLens: GlobalPostHandshakeRecordsLens[fingerprint],
+			Sni:                      sni,
+			Fingerprint:              fingerprint,
+		}
+		uConn := utls.UClient(detectConn, &utls.Config{
+			ServerName: sni,
+		}, *ModernFingerprints[fingerprint])
+		if err = uConn.Handshake(); err != nil {
+			continue
+		}
+		io.Copy(io.Discard, uConn)
 	}
 	return GlobalPostHandshakeRecordsLens[fingerprint]
 }
@@ -77,10 +83,12 @@ func (c *DetectConn) Write(b []byte) (n int, err error) {
 
 func (c *DetectConn) Read(b []byte) (n int, err error) {
 	if !c.CcsSent {
+		c.Conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 		return c.Conn.Read(b)
 	}
-	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	c.Conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	data, _ := io.ReadAll(c.Conn)
+	GlobalPostHandshakeRecordsLock.Lock()
 	for {
 		if len(data) >= 5 && bytes.Equal(data[:3], []byte{23, 3, 3}) {
 			length := int(binary.BigEndian.Uint16(data[3:5])) + 5
@@ -90,6 +98,10 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 			break
 		}
 	}
+	if len(c.PostHandshakeRecordsLens[c.Sni]) == 0 {
+		c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], 0)
+	}
+	GlobalPostHandshakeRecordsLock.Unlock()
 	fmt.Printf("REALITY fingerprint probe: %v\tSni: %v\tlen(postHandshakeRecord): %v\n", c.Fingerprint, c.Sni, c.PostHandshakeRecordsLens[c.Sni])
 	return 0, io.EOF
 }
@@ -115,6 +127,7 @@ var ModernFingerprints = map[string]*utls.ClientHelloID{
 	"hellosafari_16_0":        &utls.HelloSafari_16_0,
 	"hello360_11_0":           &utls.Hello360_11_0,
 	"helloqq_11_1":            &utls.HelloQQ_11_1,
+
 	"hellogolang":            &utls.HelloGolang,
 	"hellorandomized":        &utls.HelloRandomized,
 	"hellorandomizedalpn":    &utls.HelloRandomizedALPN,
