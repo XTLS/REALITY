@@ -82,24 +82,26 @@ func (c *DetectConn) Write(b []byte) (n int, err error) {
 }
 
 func (c *DetectConn) Read(b []byte) (n int, err error) {
+	c.Conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if !c.CcsSent {
-		c.Conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 		return c.Conn.Read(b)
 	}
-	c.Conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	data, _ := io.ReadAll(c.Conn)
-	GlobalPostHandshakeRecordsLock.Lock()
+	var newLength []int
 	for {
 		if len(data) >= 5 && bytes.Equal(data[:3], []byte{23, 3, 3}) {
 			length := int(binary.BigEndian.Uint16(data[3:5])) + 5
-			c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], length)
+			newLength = append(newLength, length)
 			data = data[length:]
 		} else {
 			break
 		}
 	}
-	if len(c.PostHandshakeRecordsLens[c.Sni]) == 0 {
+	GlobalPostHandshakeRecordsLock.Lock()
+	if len(newLength) == 0 {
 		c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], 0)
+	} else {
+		c.PostHandshakeRecordsLens[c.Sni] = newLength
 	}
 	GlobalPostHandshakeRecordsLock.Unlock()
 	fmt.Printf("REALITY fingerprint probe: %v\tSni: %v\tlen(postHandshakeRecord): %v\n", c.Fingerprint, c.Sni, c.PostHandshakeRecordsLens[c.Sni])
