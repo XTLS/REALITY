@@ -17,6 +17,8 @@ var GlobalPostHandshakeRecordsLock sync.Mutex
 
 var GlobalPostHandshakeRecordsLens map[string]map[string][]int
 
+const networkType = "tcp"
+
 func InitAllRecords(config *Config) {
 	DetectPostHandshakeRecordsLens(config, "hellochrome_131") // init most used first
 	for f, _ := range ModernFingerprints {
@@ -25,6 +27,10 @@ func InitAllRecords(config *Config) {
 }
 
 func DetectPostHandshakeRecordsLens(config *Config, fingerprint string) map[string][]int {
+	if GlobalPostHandshakeRecordsLens != nil && GlobalPostHandshakeRecordsLens[fingerprint] != nil {
+		return GlobalPostHandshakeRecordsLens[fingerprint]
+	}
+
 	GlobalPostHandshakeRecordsLock.Lock()
 	if GlobalPostHandshakeRecordsLens == nil {
 		GlobalPostHandshakeRecordsLens = make(map[string]map[string][]int)
@@ -34,13 +40,13 @@ func DetectPostHandshakeRecordsLens(config *Config, fingerprint string) map[stri
 	}
 	var pending []string
 	for sni := range config.ServerNames {
-		if (GlobalPostHandshakeRecordsLens[fingerprint][sni] == nil) {
+		if GlobalPostHandshakeRecordsLens[fingerprint][sni] == nil {
 			pending = append(pending, sni)
 		}
 	}
 	GlobalPostHandshakeRecordsLock.Unlock()
 	for _, sni := range pending {
-		target, err := net.Dial("tcp", config.Dest)
+		target, err := net.Dial(networkType, config.Dest)
 		if err != nil {
 			continue
 		}
@@ -130,8 +136,8 @@ var ModernFingerprints = map[string]*utls.ClientHelloID{
 	"hello360_11_0":           &utls.Hello360_11_0,
 	"helloqq_11_1":            &utls.HelloQQ_11_1,
 
-	"hellogolang":            &utls.HelloGolang,
-	"hellorandomized":        &utls.HelloRandomized,
-	"hellorandomizedalpn":    &utls.HelloRandomizedALPN,
-	"hellorandomizednoalpn":  &utls.HelloRandomizedNoALPN,
+	"hellogolang":           &utls.HelloGolang,
+	"hellorandomized":       &utls.HelloRandomized,
+	"hellorandomizedalpn":   &utls.HelloRandomizedALPN,
+	"hellorandomizednoalpn": &utls.HelloRandomizedNoALPN,
 }
