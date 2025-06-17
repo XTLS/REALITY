@@ -28,7 +28,11 @@ func InitAllRecords(config *Config) {
 
 func DetectPostHandshakeRecordsLens(config *Config, fingerprint string) map[string][]int {
 	if GlobalPostHandshakeRecordsLens != nil && GlobalPostHandshakeRecordsLens[fingerprint] != nil {
-		return GlobalPostHandshakeRecordsLens[fingerprint]
+		for sni := range config.ServerNames {
+			if GlobalPostHandshakeRecordsLens[fingerprint][sni] != nil {
+				return GlobalPostHandshakeRecordsLens[fingerprint]
+			}
+		}
 	}
 
 	GlobalPostHandshakeRecordsLock.Lock()
