@@ -12,18 +12,31 @@ import (
 	utls "github.com/refraction-networking/utls"
 )
 
+type postHandshakeRecordsLens struct {
+	lens map[string][]int
+	once sync.Once
+}
+
 var GlobalPostHandshakeRecordsLock sync.Mutex
 
-var GlobalPostHandshakeRecordsLens map[*Config]map[string][]int
+var GlobalPostHandshakeRecordsLens map[*Config]*postHandshakeRecordsLens
 
 func DetectPostHandshakeRecordsLens(config *Config) map[string][]int {
 	GlobalPostHandshakeRecordsLock.Lock()
-	defer GlobalPostHandshakeRecordsLock.Unlock()
 	if GlobalPostHandshakeRecordsLens == nil {
-		GlobalPostHandshakeRecordsLens = make(map[*Config]map[string][]int)
+		GlobalPostHandshakeRecordsLens = make(map[*Config]*postHandshakeRecordsLens)
 	}
+	var postHandshakeRecordsLensCache *postHandshakeRecordsLens
 	if GlobalPostHandshakeRecordsLens[config] == nil {
-		GlobalPostHandshakeRecordsLens[config] = make(map[string][]int)
+		postHandshakeRecordsLensCache = &postHandshakeRecordsLens{
+			lens: make(map[string][]int),
+		}
+		GlobalPostHandshakeRecordsLens[config] = postHandshakeRecordsLensCache
+	} else {
+		postHandshakeRecordsLensCache = GlobalPostHandshakeRecordsLens[config]
+	}
+	GlobalPostHandshakeRecordsLock.Unlock()
+	postHandshakeRecordsLensCache.once.Do(func() {
 		for sni := range config.ServerNames {
 			target, err := net.Dial("tcp", config.Dest)
 			if err != nil {
@@ -36,7 +49,7 @@ func DetectPostHandshakeRecordsLens(config *Config) map[string][]int {
 			}
 			detectConn := &DetectConn{
 				Conn:                     target,
-				PostHandshakeRecordsLens: GlobalPostHandshakeRecordsLens[config],
+				PostHandshakeRecordsLens: postHandshakeRecordsLensCache.lens,
 				Sni:                      sni,
 			}
 			uConn := utls.UClient(detectConn, &utls.Config{
@@ -47,8 +60,8 @@ func DetectPostHandshakeRecordsLens(config *Config) map[string][]int {
 			}
 			io.Copy(io.Discard, uConn)
 		}
-	}
-	return GlobalPostHandshakeRecordsLens[config]
+	})
+	return postHandshakeRecordsLensCache.lens
 }
 
 type DetectConn struct {
