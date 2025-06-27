@@ -12,50 +12,48 @@ import (
 	utls "github.com/refraction-networking/utls"
 )
 
-var GlobalPostHandshakeRecordsLock sync.Mutex
+var GlobalPostHandshakeRecordsLens sync.Map
 
-var GlobalPostHandshakeRecordsLens map[*Config]map[string][]int
-
-func DetectPostHandshakeRecordsLens(config *Config) map[string][]int {
-	GlobalPostHandshakeRecordsLock.Lock()
-	defer GlobalPostHandshakeRecordsLock.Unlock()
-	if GlobalPostHandshakeRecordsLens == nil {
-		GlobalPostHandshakeRecordsLens = make(map[*Config]map[string][]int)
-	}
-	if GlobalPostHandshakeRecordsLens[config] == nil {
-		GlobalPostHandshakeRecordsLens[config] = make(map[string][]int)
-		for sni := range config.ServerNames {
-			target, err := net.Dial("tcp", config.Dest)
-			if err != nil {
-				continue
-			}
-			if config.Xver == 1 || config.Xver == 2 {
-				if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
-					continue
+func DetectPostHandshakeRecordsLens(config *Config) {
+	for sni := range config.ServerNames {
+		key := config.Dest + " " + sni
+		if _, loaded := GlobalPostHandshakeRecordsLens.LoadOrStore(key, false); !loaded {
+			go func() {
+				defer func() {
+					val, _ := GlobalPostHandshakeRecordsLens.Load(key)
+					if _, ok := val.(bool); ok {
+						GlobalPostHandshakeRecordsLens.Store(key, []int{})
+					}
+				}()
+				target, err := net.Dial("tcp", config.Dest)
+				if err != nil {
+					return
 				}
-			}
-			detectConn := &DetectConn{
-				Conn:                     target,
-				PostHandshakeRecordsLens: GlobalPostHandshakeRecordsLens[config],
-				Sni:                      sni,
-			}
-			uConn := utls.UClient(detectConn, &utls.Config{
-				ServerName: sni,
-			}, utls.HelloChrome_Auto)
-			if err = uConn.Handshake(); err != nil {
-				continue
-			}
-			io.Copy(io.Discard, uConn)
+				if config.Xver == 1 || config.Xver == 2 {
+					if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
+						return
+					}
+				}
+				detectConn := &DetectConn{
+					Conn: target,
+					Key:  key,
+				}
+				uConn := utls.UClient(detectConn, &utls.Config{
+					ServerName: sni, // needs new loopvar behaviour
+				}, utls.HelloChrome_Auto)
+				if err = uConn.Handshake(); err != nil {
+					return
+				}
+				io.Copy(io.Discard, uConn)
+			}()
 		}
 	}
-	return GlobalPostHandshakeRecordsLens[config]
 }
 
 type DetectConn struct {
 	net.Conn
-	PostHandshakeRecordsLens map[string][]int
-	Sni                      string
-	CcsSent                  bool
+	Key     string
+	CcsSent bool
 }
 
 func (c *DetectConn) Write(b []byte) (n int, err error) {
@@ -71,14 +69,16 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 	}
 	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	data, _ := io.ReadAll(c.Conn)
+	var postHandshakeRecordsLens []int
 	for {
 		if len(data) >= 5 && bytes.Equal(data[:3], []byte{23, 3, 3}) {
 			length := int(binary.BigEndian.Uint16(data[3:5])) + 5
-			c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], length)
+			postHandshakeRecordsLens = append(postHandshakeRecordsLens, length)
 			data = data[length:]
 		} else {
 			break
 		}
 	}
+	GlobalPostHandshakeRecordsLens.Store(c.Key, postHandshakeRecordsLens)
 	return 0, io.EOF
 }

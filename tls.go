@@ -157,13 +157,9 @@ func Value(vals ...byte) (value int) {
 	return
 }
 
-// Server returns a new TLS server side connection
-// using conn as the underlying transport.
-// The configuration config must be non-nil and must include
-// at least one certificate or else set GetCertificate.
+// You MUST call `DetectPostHandshakeRecordsLens(config)` in advance manually
+// if you don't use REALITY's listener, e.g., Xray-core's RAW transport.
 func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
-	postHandshakeRecordsLens := DetectPostHandshakeRecordsLens(config)
-
 	remoteAddr := conn.RemoteAddr().String()
 	if config.Show {
 		fmt.Printf("REALITY remoteAddr: %v\n", remoteAddr)
@@ -374,20 +370,28 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if err != nil {
 				break
 			}
-			for _, length := range postHandshakeRecordsLens[hs.clientHello.serverName] {
-				plainText := make([]byte, length-16)
-				plainText[0] = 23
-				plainText[1] = 3
-				plainText[2] = 3
-				plainText[3] = byte((length - 5) >> 8)
-				plainText[4] = byte((length - 5))
-				plainText[5] = 23
-				postHandshakeRecord := hs.c.out.cipher.(aead).Seal(plainText[:5], hs.c.out.seq[:], plainText[5:], plainText[:5])
-				hs.c.out.incSeq()
-				hs.c.write(postHandshakeRecord)
-				if config.Show {
-					fmt.Printf("REALITY remoteAddr: %v\tlen(postHandshakeRecord): %v\n", remoteAddr, len(postHandshakeRecord))
+			for {
+				if val, ok := GlobalPostHandshakeRecordsLens.Load(config.Dest + " " + hs.clientHello.serverName); ok {
+					if postHandshakeRecordsLens, ok := val.([]int); ok {
+						for _, length := range postHandshakeRecordsLens {
+							plainText := make([]byte, length-16)
+							plainText[0] = 23
+							plainText[1] = 3
+							plainText[2] = 3
+							plainText[3] = byte((length - 5) >> 8)
+							plainText[4] = byte((length - 5))
+							plainText[5] = 23
+							postHandshakeRecord := hs.c.out.cipher.(aead).Seal(plainText[:5], hs.c.out.seq[:], plainText[5:], plainText[:5])
+							hs.c.out.incSeq()
+							hs.c.write(postHandshakeRecord)
+							if config.Show {
+								fmt.Printf("REALITY remoteAddr: %v\tlen(postHandshakeRecord): %v\n", remoteAddr, len(postHandshakeRecord))
+							}
+						}
+						break
+					}
 				}
+				time.Sleep(5 * time.Second)
 			}
 			hs.c.isHandshakeComplete.Store(true)
 			break
