@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -107,6 +108,35 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 	fmt.Printf("REALITY fingerprint probe: %v\tSni: %v\tlen(postHandshakeRecord): %v\n", c.Fingerprint, c.Sni, c.PostHandshakeRecordsLens[c.Sni])
 	return 0, io.EOF
 }
+
+func IdentifyModernFingerprint(ch *clientHelloMsg) string {
+	if slices.Contains(ch.supportedVersions, VersionTLS10) && slices.Contains(ch.supportedVersions, VersionTLS11) {
+		if slices.Contains(ch.extensions, utlsExtensionApplicationSettings) {
+			return "hellochrome_96"
+		}
+		return "hellochrome_87" // also hellochrome_83
+	}
+	if slices.Contains(ch.supportedCurves, X25519MLKEM768) {
+		if slices.Contains(ch.extensions, utlsExtensionApplicationSettingsNew) {
+			return "hellochrome_133"
+		}
+		return "hellochrome_131"
+	}
+	if slices.Contains(ch.extensions, utlsExtensionECH) {
+		return "hellochrome_120"
+	}
+	if slices.Contains(ch.extensions, utlsExtensionPadding) {
+		return "hellochrome_106_shuffle" // also HelloChrome_100, HelloChrome_102
+	}
+	return "Custom"
+}
+
+const (
+	utlsExtensionPadding                uint16 = 21
+	utlsExtensionApplicationSettings    uint16 = 17513  // not IANA assigned
+	utlsExtensionApplicationSettingsNew uint16 = 17613  // not IANA assigned
+	utlsExtensionECH                    uint16 = 0xfe0d // draft-ietf-tls-esni-17
+)
 
 var ModernFingerprints = map[string]*utls.ClientHelloID{
 	// One of these will be chosen as `random` at startup

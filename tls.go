@@ -162,8 +162,6 @@ func Value(vals ...byte) (value int) {
 // The configuration config must be non-nil and must include
 // at least one certificate or else set GetCertificate.
 func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
-	postHandshakeRecordsLens := DetectPostHandshakeRecordsLens(config, "hellochrome_131")
-
 	remoteAddr := conn.RemoteAddr().String()
 	if config.Show {
 		fmt.Printf("REALITY remoteAddr: %v\n", remoteAddr)
@@ -374,6 +372,12 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if err != nil {
 				break
 			}
+			var fingerprint = IdentifyModernFingerprint(hs.clientHello)
+			fmt.Printf("REALITY remoteAddr: %v\tidentified fingerprint: %v\n", remoteAddr, fingerprint)
+			if fingerprint == "Custom" {
+				fingerprint = "hellochrome_131"
+			}
+			postHandshakeRecordsLens := DetectPostHandshakeRecordsLens(config, fingerprint)
 			for _, length := range postHandshakeRecordsLens[hs.clientHello.serverName] {
 				if length == 0 {
 					break;
