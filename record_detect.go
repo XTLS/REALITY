@@ -35,7 +35,7 @@ func DetectPostHandshakeRecordsLens(config *Config, fingerprint string) map[stri
 	}
 	var pending []string
 	for sni := range config.ServerNames {
-		if (GlobalPostHandshakeRecordsLens[fingerprint][sni] == nil) {
+		if GlobalPostHandshakeRecordsLens[fingerprint][sni] == nil {
 			pending = append(pending, sni)
 		}
 	}
@@ -110,11 +110,37 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 }
 
 func IdentifyModernFingerprint(ch *clientHelloMsg) string {
-	if slices.Contains(ch.supportedVersions, VersionTLS10) && slices.Contains(ch.supportedVersions, VersionTLS11) {
-		if slices.Contains(ch.extensions, utlsExtensionApplicationSettings) {
-			return "hellochrome_96"
+	if slices.Contains(ch.cipherSuites, DISABLED_TLS_RSA_WITH_AES_256_CBC_SHA256) {
+		if slices.Contains(ch.cipherSuites, GREASE_PLACEHOLDER) {
+			return "helloios_14"
 		}
-		return "hellochrome_87" // also hellochrome_83
+		return "helloios_13"
+	}
+	if slices.Contains(ch.cipherSuites, FAKE_TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA) {
+		return "hellosafari_16_0"
+	}
+	if slices.Contains(ch.extensions, fakeRecordSizeLimit) {
+		if slices.Contains(ch.supportedVersions, VersionTLS10) && slices.Contains(ch.supportedVersions, VersionTLS11) {
+			return "hellofirefox_99"
+		}
+		if !slices.Contains(ch.alpnProtocols, "http/1.1") {
+			return "hellofirefox_102"
+		}
+		if slices.Contains(ch.extensions, utlsExtensionECH) {
+			return "hellofirefox_120"
+		}
+		if slices.Contains(ch.extensions, utlsExtensionPadding) {
+			return "hellofirefox_105"
+		}
+	}
+	if slices.Contains(ch.supportedVersions, VersionTLS10) && slices.Contains(ch.supportedVersions, VersionTLS11) {
+		if slices.Contains(ch.extensions, fakeExtensionChannelID) {
+			return "hello360_11_0"
+		}
+		if slices.Contains(ch.extensions, utlsExtensionApplicationSettings) {
+			return "hellochrome_96" // also helloqq_11_1
+		}
+		return "hellochrome_87" // also hellochrome_83, helloedge_85
 	}
 	if slices.Contains(ch.supportedCurves, X25519MLKEM768) {
 		if slices.Contains(ch.extensions, utlsExtensionApplicationSettingsNew) {
@@ -126,7 +152,7 @@ func IdentifyModernFingerprint(ch *clientHelloMsg) string {
 		return "hellochrome_120"
 	}
 	if slices.Contains(ch.extensions, utlsExtensionPadding) {
-		return "hellochrome_106_shuffle" // also HelloChrome_100, HelloChrome_102
+		return "hellochrome_106_shuffle" // also HelloChrome_100, HelloChrome_102, helloedge_106
 	}
 	return "Custom"
 }
@@ -136,6 +162,16 @@ const (
 	utlsExtensionApplicationSettings    uint16 = 17513  // not IANA assigned
 	utlsExtensionApplicationSettingsNew uint16 = 17613  // not IANA assigned
 	utlsExtensionECH                    uint16 = 0xfe0d // draft-ietf-tls-esni-17
+
+	fakeRecordSizeLimit    uint16 = 0x001c
+	fakeExtensionChannelID uint16 = 30032 // not IANA assigned
+
+	DISABLED_TLS_RSA_WITH_AES_256_CBC_SHA256   = uint16(0x003d)
+	FAKE_TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA = uint16(0xc008) // https://docs.microsoft.com/en-us/dotnet/api/system.net.security.tlsciphersuite?view=netcore-3.1
+
+	// based on spec's GreaseStyle, GREASE_PLACEHOLDER may be replaced by another GREASE value
+	// https://tools.ietf.org/html/draft-ietf-tls-grease-01
+	GREASE_PLACEHOLDER = 0x0a0a
 )
 
 var ModernFingerprints = map[string]*utls.ClientHelloID{
