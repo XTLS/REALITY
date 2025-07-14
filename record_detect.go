@@ -90,13 +90,13 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 	for {
 		data := make([]byte, 0, 2048)
 		n, err = c.Conn.Read(data[len(data):cap(data)])
+		data = data[:len(data)+n]
 		if err != nil {
 			return 0, err
 		}
 		newPacket := TrafficPacket {
 			SinceHandshake: time.Since(c.HandshakeDone),
 		}
-		c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], newPacket)
 		for len(data) > 0 {
 			if len(data) >= 5 && bytes.Equal(data[:3], []byte{23, 3, 3}) {
 				length := int(binary.BigEndian.Uint16(data[3:5])) + 5
@@ -106,5 +106,6 @@ func (c *DetectConn) Read(b []byte) (n int, err error) {
 				break
 			}
 		}
+		c.PostHandshakeRecordsLens[c.Sni] = append(c.PostHandshakeRecordsLens[c.Sni], newPacket)
 	}
 }

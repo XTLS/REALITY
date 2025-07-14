@@ -29,6 +29,8 @@ type Conn struct {
 	ClientVer     [3]byte
 	ClientTime    time.Time
 	ClientShortId [8]byte
+	PostHandshakeRecord []TrafficPacket
+	PosthandshakeMutex  sync.Mutex
 
 	// constant
 	conn        net.Conn
@@ -1314,8 +1316,48 @@ func (c *Conn) Write(b []byte) (int, error) {
 		}
 	}
 
+	c.PosthandshakeMutex.Lock()
+	if c.PostHandshakeRecord != nil {
+		for _, packet := range c.PostHandshakeRecord {
+			for i, length := range packet.Lens {
+				if length <= 100 && i == len(packet.Lens) - 1 && isH2Settings(b) {
+					fmt.Printf("REALITY skip fake H2 Settings frame len(postHandshakeRecord): %v\n", length)
+				} else {
+					plainText := make([]byte, length-16)
+					plainText[0] = 23
+					plainText[1] = 3
+					plainText[2] = 3
+					plainText[3] = byte((length - 5) >> 8)
+					plainText[4] = byte((length - 5))
+					plainText[5] = 23
+					postHandshakeRecord := c.out.cipher.(aead).Seal(plainText[:5], c.out.seq[:], plainText[5:], plainText[:5])
+					c.out.incSeq()
+					c.write(postHandshakeRecord)
+					fmt.Printf("REALITY Send with data, len(postHandshakeRecord): %v\tlen(buffer):%v\n", length, len(b))
+				}
+			}
+		}
+		c.PostHandshakeRecord = nil
+	}
+	c.PosthandshakeMutex.Unlock()
+
 	n, err := c.writeRecordLocked(recordTypeApplicationData, b)
 	return n + m, c.out.setErrorLocked(err)
+}
+
+func isH2Settings(b []byte) bool {
+	if len(b) < 9 {
+		return false
+	}
+	if b[3] == 0x04 && b[5] == 0x00 && b[6] == 0x00 && b[7] == 0x00 && b[8] == 0x00 {
+		// H2 settings with stream identifier of zero (0x0) is used for connection control messages
+		return true
+	}
+	if b[3] == 0x08 && b[5] == 0x00 && b[6] == 0x00 && b[7] == 0x00 && b[8] == 0x00 {
+		// H2 window update, unlikely but put here anyways
+		return true
+	}
+	return false
 }
 
 // handleRenegotiation processes a HelloRequest handshake message.

@@ -374,21 +374,32 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if err != nil {
 				break
 			}
-			for _, packet := range postHandshakeRecordsLens[hs.clientHello.serverName] {
-				for _, length := range packet.Lens {
-					plainText := make([]byte, length-16)
-					plainText[0] = 23
-					plainText[1] = 3
-					plainText[2] = 3
-					plainText[3] = byte((length - 5) >> 8)
-					plainText[4] = byte((length - 5))
-					plainText[5] = 23
-					postHandshakeRecord := hs.c.out.cipher.(aead).Seal(plainText[:5], hs.c.out.seq[:], plainText[5:], plainText[:5])
-					hs.c.out.incSeq()
-					hs.c.write(postHandshakeRecord)
-					fmt.Printf("REALITY remoteAddr: %v\tlen(postHandshakeRecord): %v\n", remoteAddr, len(postHandshakeRecord))
+			hs.c.PostHandshakeRecord = postHandshakeRecordsLens[hs.clientHello.serverName]
+			go func(){
+				if hs.c.PostHandshakeRecord != nil {
+					time.Sleep(hs.c.PostHandshakeRecord[0].SinceHandshake)
 				}
-			}
+				hs.c.PosthandshakeMutex.Lock()
+				defer hs.c.PosthandshakeMutex.Unlock()
+				if hs.c.PostHandshakeRecord != nil {
+					for _, packet := range hs.c.PostHandshakeRecord {
+						for _, length := range packet.Lens {
+							plainText := make([]byte, length-16)
+							plainText[0] = 23
+							plainText[1] = 3
+							plainText[2] = 3
+							plainText[3] = byte((length - 5) >> 8)
+							plainText[4] = byte((length - 5))
+							plainText[5] = 23
+							postHandshakeRecord := hs.c.out.cipher.(aead).Seal(plainText[:5], hs.c.out.seq[:], plainText[5:], plainText[:5])
+							hs.c.out.incSeq()
+							hs.c.write(postHandshakeRecord)
+							fmt.Printf("REALITY remoteAddr: %v\tSend after sleep%s\tlen(postHandshakeRecord): %v\n", remoteAddr, packet.SinceHandshake, len(postHandshakeRecord))
+						}
+					}
+					hs.c.PostHandshakeRecord = nil
+				}
+			}()
 			hs.c.isHandshakeComplete.Store(true)
 			break
 		}
