@@ -371,7 +371,15 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				break
 			}
 			for {
-				if val, ok := GlobalPostHandshakeRecordsLens.Load(config.Dest + " " + hs.clientHello.serverName); ok {
+				key := config.Dest + " " + hs.clientHello.serverName
+				if len(hs.clientHello.alpnProtocols) == 0 {
+					key += " 0"
+				} else if hs.clientHello.alpnProtocols[0] == "h2" {
+					key += " 2"
+				} else {
+					key += " 1"
+				}
+				if val, ok := GlobalPostHandshakeRecordsLens.Load(key); ok {
 					if postHandshakeRecordsLens, ok := val.([]int); ok {
 						for _, length := range postHandshakeRecordsLens {
 							plainText := make([]byte, length-16)
