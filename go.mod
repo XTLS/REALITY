@@ -10,3 +10,9 @@ require (
 	golang.org/x/crypto v0.40.0
 	golang.org/x/sys v0.34.0
 )
+
+require (
+	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+)
