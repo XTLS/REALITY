@@ -562,6 +562,8 @@ type Config struct {
 	MaxTimeDiff  time.Duration
 	ShortIds     map[[8]byte]bool
 
+	Mldsa65Key []byte
+
 	LimitFallbackUpload   LimitFallback
 	LimitFallbackDownload LimitFallback
 
