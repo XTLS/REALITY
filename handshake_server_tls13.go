@@ -16,6 +16,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/xtls/reality/fips140tls"
 	"github.com/xtls/reality/hpke"
 	"github.com/xtls/reality/tls13"
@@ -70,19 +72,26 @@ type serverHandshakeStateTLS13 struct {
 }
 
 var (
-	ed25519Priv ed25519.PrivateKey
-	signedCert  []byte
+	ed25519Priv       ed25519.PrivateKey
+	signedCert        []byte
+	signedCertMldsa65 []byte
 )
 
 func init() {
 	certificate := x509.Certificate{SerialNumber: &big.Int{}}
+	certificateMldsa65 := x509.Certificate{SerialNumber: &big.Int{}, ExtraExtensions: []pkix.Extension{{Id: []int{0, 0}, Value: empty[:3309]}}}
 	_, ed25519Priv, _ = ed25519.GenerateKey(rand.Reader)
 	signedCert, _ = x509.CreateCertificate(rand.Reader, &certificate, &certificate, ed25519.PublicKey(ed25519Priv[32:]), ed25519Priv)
+	signedCertMldsa65, _ = x509.CreateCertificate(rand.Reader, &certificateMldsa65, &certificateMldsa65, ed25519.PublicKey(ed25519Priv[32:]), ed25519Priv)
 }
 
 func (hs *serverHandshakeStateTLS13) handshake() error {
 	c := hs.c
-
+	if c.config.Show {
+		remoteAddr := c.RemoteAddr().String()
+		fmt.Printf("REALITY remoteAddr: %v\tis using X25519MLKEM768 for TLS' communication: %v\n", remoteAddr, hs.hello.serverShare.group == X25519MLKEM768)
+		fmt.Printf("REALITY remoteAddr: %v\tis using ML-DSA-65 for cert's extra signature: %v\n", remoteAddr, len(c.config.Mldsa65Key) > 0)
+	}
 	// For an overview of the TLS 1.3 handshake, see RFC 8446, Section 2.
 	/*
 		if err := hs.processClientHello(); err != nil {
@@ -130,14 +139,26 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		}
 	*/
 	{
-		signedCert := append([]byte{}, signedCert...)
+		var cert []byte
+		if len(c.config.Mldsa65Key) > 0 {
+			cert = bytes.Clone(signedCertMldsa65)
+		} else {
+			cert = bytes.Clone(signedCert)
+		}
 
 		h := hmac.New(sha512.New, c.AuthKey)
 		h.Write(ed25519Priv[32:])
-		h.Sum(signedCert[:len(signedCert)-64])
+		h.Sum(cert[:len(cert)-64])
+
+		if len(c.config.Mldsa65Key) > 0 {
+			h.Write(hs.clientHello.original)
+			h.Write(hs.hello.original)
+			key, _ := mldsa65.Scheme().UnmarshalBinaryPrivateKey(c.config.Mldsa65Key)
+			mldsa65.SignTo(key.(*mldsa65.PrivateKey), h.Sum(nil), nil, false, cert[126:]) // fixed location
+		}
 
 		hs.cert = &Certificate{
-			Certificate: [][]byte{signedCert},
+			Certificate: [][]byte{cert},
 			PrivateKey:  ed25519Priv,
 		}
 		hs.sigAlg = Ed25519
