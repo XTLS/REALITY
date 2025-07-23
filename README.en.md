@@ -46,6 +46,7 @@ TODO List: TODO
                         "", // If there is this item, the client shortId can be empty
                         "0123456789abcdef" // 0 to f, the length is a multiple of 2, the maximum length is 16
                     ],
+                    "mldsa65Seed": "", // Optional, execute ./xray mldsa65 to generate, for additional post-quantum signature to the certificate
                     // These two limitations below are optional, for rate limiting fallback connections, bytesPerSec's default is 0, which means disabled
                     // It's a detectable pattern, not recommended to be enabled, RANDOMIZE these parameters if you're a web-panel/one-click-script developer
                     "limitFallbackUpload": {
@@ -100,10 +101,11 @@ The next main goal of REALITY is "**pre-built mode**", that is, to collect and b
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // Optional, if true, output debugging information
-                    "fingerprint": "chrome", // Required, use uTLS library to emulate client TLS fingerprint
+                    "fingerprint": "chrome", // Optional, use uTLS library to emulate client TLS fingerprint, defaults to chrome
                     "serverName": "", // One of the server serverNames
-                    "publicKey": "", // The public key corresponding to the private key of the server
+                    "password": "", // The public key generated from the server's private key, for the client it is the password
                     "shortId": "", // One of the server shortIds
+                    "mldsa65Verify": "", // Optional, the public key generated from the server's mldsa65Seed, for additional post-quantum verification to the certificate
                     "spiderX": "" // The initial path and parameters of the crawler, recommended to be different for each client
                 }
             }

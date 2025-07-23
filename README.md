@@ -46,6 +46,7 @@ TODO List: TODO
                         "", // 若有此项，客户端 shortId 可为空
                         "0123456789abcdef" // 0 到 f，长度为 2 的倍数，长度上限为 16
                     ],
+                    "mldsa65Seed": "", // 选填，执行 ./xray mldsa65 生成，对证书进行抗量子的额外签名
                     // 下列两个 limit 为选填，可对未通过验证的回落连接限速，bytesPerSec 默认为 0 即不启用
                     // 回落限速是一种特征，不建议启用，如果您是面板/一键脚本开发者，务必让这些参数随机化
                     "limitFallbackUpload": {
@@ -100,10 +101,11 @@ REALITY 的下一个主要目标是“**预先构建模式**”，即提前采�
                 "security": "reality",
                 "realitySettings": {
                     "show": false, // 选填，若为 true，输出调试信息
-                    "fingerprint": "chrome", // 必填，使用 uTLS 库模拟客户端 TLS 指纹
+                    "fingerprint": "chrome", // 选填，使用 uTLS 库模拟客户端 TLS 指纹，默认 chrome
                     "serverName": "", // 服务端 serverNames 之一
-                    "publicKey": "", // 服务端私钥对应的公钥
+                    "password": "", // 服务端私钥生成的公钥，对客户端来说就是密码
                     "shortId": "", // 服务端 shortIds 之一
+                    "mldsa65Verify": "", // 选填，服务端 mldsa65Seed 生成的公钥，对证书进行抗量子的额外验证
                     "spiderX": "" // 爬虫初始路径与参数，建议每个客户端不同
                 }
             }
