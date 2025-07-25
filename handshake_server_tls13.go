@@ -846,8 +846,16 @@ func (hs *serverHandshakeStateTLS13) sendServerParameters() error {
 		return err
 	}
 
-	if _, err := hs.c.writeHandshakeRecord(hs.hello, hs.transcript); err != nil {
-		return err
+	/*
+		if _, err := hs.c.writeHandshakeRecord(hs.hello, hs.transcript); err != nil {
+			return err
+		}
+	*/
+	{
+		hs.transcript.Write(hs.hello.original)
+		if _, err := hs.c.writeRecord(recordTypeHandshake, hs.hello.original); err != nil {
+			return err
+		}
 	}
 
 	if err := hs.sendDummyChangeCipherSpec(); err != nil {
