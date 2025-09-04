@@ -9,9 +9,9 @@ TODO List: TODO
 
 ## Donation & NFTs
 
-### [Collect a REALITY NFT to support the development of REALITY protocol!](https://opensea.io/item/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/2)
+### [Collect a Project X NFT to support the development of Project X!](https://opensea.io/item/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/1)
 
-[<img alt="REALITY NFT" width="150px" src="https://raw2.seadn.io/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/b0b1721cf5f4c367584e223bb0805f/37b0b1721cf5f4c367584e223bb0805f.svg" />](https://opensea.io/item/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/2)
+[<img alt="Project X NFT" width="150px" src="https://raw2.seadn.io/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/7fa9ce900fb39b44226348db330e32/8b7fa9ce900fb39b44226348db330e32.svg" />](https://opensea.io/item/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/1)
 
 - **ETH/USDT/USDC: `0xDc3Fe44F0f25D13CACb1C4896CD0D321df3146Ee`**
 - **Project X NFT: https://opensea.io/item/ethereum/0x5ee362866001613093361eb8569d59c4141b76d1/1**
