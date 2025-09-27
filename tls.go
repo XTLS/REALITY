@@ -470,7 +470,22 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		return hs.c, nil
 	}
 	conn.Close()
-	return nil, errors.New("REALITY: processed invalid connection") // TODO: Add details.
+	var failureReason string
+	if hs.clientHello == nil {
+		failureReason = "failed to read client hello"
+	} else if hs.c.vers != VersionTLS13 {
+		failureReason = fmt.Sprintf("unsupported TLS version: %x", hs.c.vers)
+	} else if !matchServerName(config.ServerNames, hs.clientHello.serverName) {
+		failureReason = fmt.Sprintf("server name mismatch: %s", hs.clientHello.serverName)
+	} else if hs.c.conn != conn {
+		failureReason = "authentication failed or validation criteria not met"
+	} else if hs.c.out.handshakeLen[0] == 0 {
+		failureReason = "target sent incorrect server hello or handshake incomplete"
+	} else {
+		failureReason = "handshake did not complete successfully"
+	}
+
+	return nil, fmt.Errorf("REALITY: processed invalid connection from %s: %s", remoteAddr, failureReason)
 
 	/*
 		c := &Conn{
