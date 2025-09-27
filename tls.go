@@ -157,32 +157,6 @@ func Value(vals ...byte) (value int) {
 	return
 }
 
-// matchServerName checks if serverName matches any of the configured server names,
-// including wildcard patterns according to DNS RFC specifications.
-// Wildcard patterns like "*.example.com" match "sub.example.com" but not "example.com" or "sub.sub.example.com"
-func matchServerName(serverNames map[string]bool, serverName string) bool {
-	if serverNames[serverName] {
-		return true
-	}
-
-	for pattern := range serverNames {
-		if len(pattern) > 2 && pattern[0] == '*' && pattern[1] == '.' {
-			domain := pattern[2:]
-
-			if len(serverName) > len(domain) &&
-				strings.HasSuffix(serverName, domain) &&
-				serverName[len(serverName)-len(domain)-1] == '.' {
-				prefix := serverName[:len(serverName)-len(domain)-1]
-				if !strings.Contains(prefix, ".") {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-
 // You MUST call `DetectPostHandshakeRecordsLens(config)` in advance manually
 // if you don't use REALITY's listener, e.g., Xray-core's RAW transport.
 func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
@@ -234,7 +208,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		for {
 			mutex.Lock()
 			hs.clientHello, _, err = hs.c.readClientHello(context.Background()) // TODO: Change some rules in this function.
-			if copying || err != nil || hs.c.vers != VersionTLS13 || !matchServerName(config.ServerNames, hs.clientHello.serverName) {
+			if copying || err != nil || hs.c.vers != VersionTLS13 || !config.ServerNames[hs.clientHello.serverName] {
 				break
 			}
 			var peerPub []byte
