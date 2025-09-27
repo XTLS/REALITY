@@ -183,6 +183,52 @@ func matchServerName(serverNames map[string]bool, serverName string) bool {
 	return false
 }
 
+// resolveWildcardServerNames converts wildcard patterns to concrete server names for detection.
+// For wildcard patterns like "*.example.com", it returns a reasonable default like "www.example.com".
+// For non-wildcard patterns, it returns them as-is.
+func resolveWildcardServerNames(serverNames map[string]bool) map[string]bool {
+	resolved := make(map[string]bool)
+
+	for pattern := range serverNames {
+		if len(pattern) > 2 && pattern[0] == '*' && pattern[1] == '.' {
+			// Convert "*.example.com" to "www.example.com" for detection
+			domain := pattern[2:]
+			resolved["www."+domain] = true
+		} else {
+			// Non-wildcard pattern, use as-is
+			resolved[pattern] = true
+		}
+	}
+
+	return resolved
+}
+
+// findMatchingServerName finds the original server name pattern that matches the given serverName.
+// This is used to find the correct key for GlobalPostHandshakeRecordsLens lookup.
+func findMatchingServerName(serverNames map[string]bool, serverName string) string {
+	// Direct match
+	if serverNames[serverName] {
+		return serverName
+	}
+
+	// Check wildcard patterns
+	for pattern := range serverNames {
+		if len(pattern) > 2 && pattern[0] == '*' && pattern[1] == '.' {
+			domain := pattern[2:]
+			if len(serverName) > len(domain) &&
+				strings.HasSuffix(serverName, domain) &&
+				serverName[len(serverName)-len(domain)-1] == '.' {
+				prefix := serverName[:len(serverName)-len(domain)-1]
+				if !strings.Contains(prefix, ".") {
+					return pattern
+				}
+			}
+		}
+	}
+
+	return serverName // fallback to original
+}
+
 // You MUST call `DetectPostHandshakeRecordsLens(config)` in advance manually
 // if you don't use REALITY's listener, e.g., Xray-core's RAW transport.
 func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
@@ -409,15 +455,43 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				break
 			}
 			for {
-				key := config.Dest + " " + hs.clientHello.serverName
+				// First try with the original serverName
+				baseKey := config.Dest + " " + hs.clientHello.serverName
 				if len(hs.clientHello.alpnProtocols) == 0 {
-					key += " 0"
+					baseKey += " 0"
 				} else if hs.clientHello.alpnProtocols[0] == "h2" {
-					key += " 2"
+					baseKey += " 2"
 				} else {
-					key += " 1"
+					baseKey += " 1"
 				}
-				if val, ok := GlobalPostHandshakeRecordsLens.Load(key); ok {
+
+				var val interface{}
+				var ok bool
+
+				// Try original serverName first
+				if val, ok = GlobalPostHandshakeRecordsLens.Load(baseKey); !ok {
+					// If not found, try with wildcard pattern resolution
+					matchingPattern := findMatchingServerName(config.ServerNames, hs.clientHello.serverName)
+					if matchingPattern != hs.clientHello.serverName {
+						// The serverName matched a wildcard pattern, try with resolved name
+						resolvedNames := resolveWildcardServerNames(map[string]bool{matchingPattern: true})
+						for resolvedName := range resolvedNames {
+							wildcardKey := config.Dest + " " + resolvedName
+							if len(hs.clientHello.alpnProtocols) == 0 {
+								wildcardKey += " 0"
+							} else if hs.clientHello.alpnProtocols[0] == "h2" {
+								wildcardKey += " 2"
+							} else {
+								wildcardKey += " 1"
+							}
+							if val, ok = GlobalPostHandshakeRecordsLens.Load(wildcardKey); ok {
+								break
+							}
+						}
+					}
+				}
+
+				if ok {
 					if postHandshakeRecordsLens, ok := val.([]int); ok {
 						for _, length := range postHandshakeRecordsLens {
 							plainText := make([]byte, length-16)
@@ -470,7 +544,22 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		return hs.c, nil
 	}
 	conn.Close()
-	return nil, errors.New("REALITY: processed invalid connection") // TODO: Add details.
+	var failureReason string
+	if hs.clientHello == nil {
+		failureReason = "failed to read client hello"
+	} else if hs.c.vers != VersionTLS13 {
+		failureReason = fmt.Sprintf("unsupported TLS version: %x", hs.c.vers)
+	} else if !matchServerName(config.ServerNames, hs.clientHello.serverName) {
+		failureReason = fmt.Sprintf("server name mismatch: %s", hs.clientHello.serverName)
+	} else if hs.c.conn != conn {
+		failureReason = "authentication failed or validation criteria not met"
+	} else if hs.c.out.handshakeLen[0] == 0 {
+		failureReason = "target sent incorrect server hello or handshake incomplete"
+	} else {
+		failureReason = "handshake did not complete successfully"
+	}
+
+	return nil, fmt.Errorf("REALITY: processed invalid connection from %s: %s", remoteAddr, failureReason)
 
 	/*
 		c := &Conn{

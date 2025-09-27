@@ -16,7 +16,8 @@ import (
 var GlobalPostHandshakeRecordsLens sync.Map
 
 func DetectPostHandshakeRecordsLens(config *Config) {
-	for sni := range config.ServerNames {
+	resolvedServerNames := resolveWildcardServerNames(config.ServerNames)
+	for sni := range resolvedServerNames {
 		for alpn := range 3 { // 0, 1, 2
 			key := config.Dest + " " + sni + " " + strconv.Itoa(alpn)
 			if _, loaded := GlobalPostHandshakeRecordsLens.LoadOrStore(key, false); !loaded {
