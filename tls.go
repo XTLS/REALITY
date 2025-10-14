@@ -443,6 +443,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	if hs.c.isHandshakeComplete.Load() {
 		return hs.c, nil
 	}
+
 	conn.Close()
 	var failureReason string
 	if hs.clientHello == nil {
@@ -458,7 +459,6 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	} else {
 		failureReason = "handshake did not complete successfully"
 	}
-
 	return nil, fmt.Errorf("REALITY: processed invalid connection from %s: %s", remoteAddr, failureReason)
 
 	/*
