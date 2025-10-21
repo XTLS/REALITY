@@ -272,7 +272,17 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if config.Show && hs.clientHello != nil {
 				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
 			}
-			io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
+			_, err := io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
+			// close target writer when received FIN (err==nil)
+			if err == nil {
+				targetWriterCloser, ok := target.(CloseWriteConn)
+				if ok {
+					targetWriterCloser.CloseWrite()
+				}
+			} else {
+				// Close target when encountering RST (or any other errors)
+				target.Close()
+			}
 		}
 		waitGroup.Done()
 	}()
