@@ -67,7 +67,7 @@ const (
 	recordHeaderLen            = 5            // record header length
 	maxHandshake               = 65536        // maximum handshake we support (protocol max is 16 MB)
 	maxHandshakeCertificateMsg = 262144       // maximum certificate message size (256 KiB)
-	maxUselessRecords          = 16           // maximum number of consecutive non-advancing records
+	maxUselessRecords          = 32           // maximum number of consecutive non-advancing records
 )
 
 // TLS record types.
