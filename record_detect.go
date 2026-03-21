@@ -27,7 +27,7 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 							GlobalPostHandshakeRecordsLens.Store(key, []int{})
 						}
 					}()
-					target, err := net.Dial("tcp", config.Dest)
+					target, err := net.Dial(config.Type, config.Dest)
 					if err != nil {
 						return
 					}
