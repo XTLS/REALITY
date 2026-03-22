@@ -3,12 +3,12 @@ module github.com/xtls/reality
 go 1.24
 
 require (
-	github.com/cloudflare/circl v1.6.1
+	github.com/cloudflare/circl v1.6.3
 	github.com/juju/ratelimit v1.0.2
-	github.com/pires/go-proxyproto v0.8.1
-	github.com/refraction-networking/utls v1.8.1
-	golang.org/x/crypto v0.43.0
-	golang.org/x/sys v0.37.0
+	github.com/pires/go-proxyproto v0.11.0
+	github.com/refraction-networking/utls v1.8.2
+	golang.org/x/crypto v0.36.0
+	golang.org/x/sys v0.31.0
 )
 
 require (
