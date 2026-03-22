@@ -63,9 +63,7 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 					io.Copy(io.Discard, uConn)
 				}()
 				go func() {
-					now := time.Now()
-					target, err := net.Dial("tcp", config.Dest)
-					rtt := time.Since(now)
+					target, err := net.Dial(config.Type, config.Dest)
 					if err != nil {
 						return
 					}
@@ -88,7 +86,6 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 					conn := &CCSDetectConn{
 						Conn: target,
 						Key:  key,
-						rtt:  rtt,
 					}
 					uConn := utls.UClient(conn, &utls.Config{
 						ServerName: sni, // needs new loopvar behaviour
@@ -140,7 +137,6 @@ var CCSMsg = []byte{0x14, 0x3, 0x3, 0x0, 0x1, 0x1}
 
 type CCSDetectConn struct {
 	net.Conn
-	rtt time.Duration
 	Key string
 }
 
@@ -162,9 +158,8 @@ func (c *CCSDetectConn) Write(b []byte) (n int, err error) {
 		}()
 		sendProbePayload := func(count int) bool {
 			msg := bytes.Repeat(CCSMsg, count)
-			rtt := max(100*time.Millisecond, c.rtt)
 			c.Conn.Write(msg)
-			time.Sleep(rtt)
+			time.Sleep(1 * time.Second)
 			if hasAlert.Load() {
 				return true
 			}
