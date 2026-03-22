@@ -25,16 +25,17 @@ import (
 // A Conn represents a secured connection.
 // It implements the net.Conn interface.
 type Conn struct {
-	AuthKey       []byte
-	ClientVer     [3]byte
-	ClientTime    time.Time
-	ClientShortId [8]byte
+	AuthKey           []byte
+	ClientVer         [3]byte
+	ClientTime        time.Time
+	ClientShortId     [8]byte
+	MaxUselessRecords int
 
 	// constant
 	conn        net.Conn
 	isClient    bool
 	handshakeFn func(context.Context) error // (*Conn).clientHandshake or serverHandshake
-	quic *quicState // nil for non-QUIC connections
+	quic        *quicState                  // nil for non-QUIC connections
 
 	// isHandshakeComplete is true if the connection is currently transferring
 	// application data (i.e. is not currently processing a handshake).
@@ -827,7 +828,10 @@ func (c *Conn) readRecordOrCCS(expectChangeCipherSpec bool) error {
 // a warning alert, empty application_data, or a change_cipher_spec in TLS 1.3.
 func (c *Conn) retryReadRecord(expectChangeCipherSpec bool) error {
 	c.retryCount++
-	if c.retryCount > maxUselessRecords {
+	if c.MaxUselessRecords <= 0 {
+		c.MaxUselessRecords = maxUselessRecords
+	}
+	if c.retryCount > c.MaxUselessRecords {
 		c.sendAlert(alertUnexpectedMessage)
 		return c.in.setErrorLocked(errors.New("tls: too many ignored records"))
 	}
@@ -1248,7 +1252,7 @@ func (c *Conn) unmarshalHandshakeMessage(data []byte, transcript transcriptHash)
 	if transcript != nil {
 		transcript.Write(data)
 	}
-	
+
 	return m, nil
 }
 
@@ -1375,7 +1379,7 @@ func (c *Conn) handlePostHandshakeMessage() error {
 		return err
 	}
 	c.retryCount++
-	if c.retryCount > maxUselessRecords {
+	if c.retryCount > c.MaxUselessRecords {
 		c.sendAlert(alertUnexpectedMessage)
 		return c.in.setErrorLocked(errors.New("tls: too many non-advancing records"))
 	}

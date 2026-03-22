@@ -372,7 +372,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if err != nil {
 				break
 			}
-			go func() { // TODO: Probe target's maxUselessRecords and some time-outs in advance.
+			go func() { // TODO: Probe some time-outs in advance.
 				if handshakeLen-len(s2cSaved) > 0 {
 					io.ReadFull(target, buf[:handshakeLen-len(s2cSaved)])
 				}
@@ -422,6 +422,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					}
 				}
 				time.Sleep(5 * time.Second)
+				if maxUseless, ok := GlobalMaxCSSMsgCount.Load(key); ok {
+					hs.c.MaxUselessRecords = maxUseless.(int)
+				}
 			}
 			hs.c.isHandshakeComplete.Store(true)
 			break
