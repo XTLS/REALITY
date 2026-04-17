@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"crypto/hkdf"
 	"crypto/hmac"
+	"crypto/hpke"
 	"crypto/mlkem"
 	"crypto/rand"
 	"crypto/rsa"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/xtls/reality/fips140tls"
-	"github.com/xtls/reality/hpke"
 	"github.com/xtls/reality/tls13"
 )
 
