@@ -572,7 +572,7 @@ func (c *Conn) processECHClientHello(outer *clientHelloMsg, echKeys []EncryptedC
 
 	for _, echKey := range echKeys {
 		skip, config, err := parseECHConfig(echKey.Config)
-		if err != nil || skip {
+		if err != nil {
 			c.sendAlert(alertInternalError)
 			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKey Config: %s", err)
 		}
