@@ -464,8 +464,13 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
 		if sessionHasClientCerts && c.config.time().After(sessionState.peerCertificates[0].NotAfter) {
 			continue
 		}
+		opts := x509.VerifyOptions{
+			CurrentTime: c.config.time(),
+			Roots:       c.config.ClientCAs,
+			KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		}
 		if sessionHasClientCerts && c.config.ClientAuth >= VerifyClientCertIfGiven &&
-			!anyUnexpiredChain(sessionState.verifiedChains, c.config.time()) {
+			!anyValidVerifiedChain(sessionState.verifiedChains, opts) {
 			continue
 		}
 
