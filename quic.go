@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 )
 
 // QUICEncryptionLevel represents a QUIC encryption level used to transmit
@@ -56,6 +57,9 @@ type QUICConfig struct {
 	// stored in the client session cache.
 	// The application should use [QUICConn.StoreSession] to store sessions.
 	EnableSessionEvents bool
+
+	// ClientHelloInfoConn is the net.Conn to use for the ClientHelloInfo.Conn field.
+	ClientHelloInfoConn net.Conn
 }
 
 // A QUICEventKind is a type of operation on a QUIC connection.
@@ -176,6 +180,7 @@ type quicState struct {
 	transportParams []byte // to send to the peer
 
 	enableSessionEvents bool
+	clientHelloInfoConn net.Conn
 }
 
 // QUICClient returns a new TLS client side connection using QUICTransport as the
@@ -200,6 +205,7 @@ func newQUICConn(conn *Conn, config *QUICConfig) *QUICConn {
 		signalc:             make(chan struct{}),
 		blockedc:            make(chan struct{}),
 		enableSessionEvents: config.EnableSessionEvents,
+		clientHelloInfoConn: config.ClientHelloInfoConn,
 	}
 	conn.quic.events = conn.quic.eventArr[:0]
 	return &QUICConn{

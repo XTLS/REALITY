@@ -1007,6 +1007,10 @@ func clientHelloInfo(ctx context.Context, c *Conn, clientHello *clientHelloMsg) 
 		supportedVersions = supportedVersionsFromMax(clientHello.vers)
 	}
 
+	conn := c.conn
+	if c.quic != nil {
+		conn = c.quic.clientHelloInfoConn
+	}
 	return &ClientHelloInfo{
 		CipherSuites:      clientHello.cipherSuites,
 		ServerName:        clientHello.serverName,
@@ -1016,7 +1020,7 @@ func clientHelloInfo(ctx context.Context, c *Conn, clientHello *clientHelloMsg) 
 		SupportedProtos:   clientHello.alpnProtocols,
 		SupportedVersions: supportedVersions,
 		Extensions:        clientHello.extensions,
-		Conn:              c.conn,
+		Conn:              conn,
 		HelloRetryRequest: c.didHRR,
 		config:            c.config,
 		ctx:               ctx,
