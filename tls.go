@@ -200,6 +200,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	}
 
 	copying := false
+	replayedClientHello := false
 
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(2)
@@ -258,6 +259,14 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 					(config.MaxClientVer == nil || Value(hs.c.ClientVer[:]...) <= Value(config.MaxClientVer...)) &&
 					(config.MaxTimeDiff == 0 || time.Since(hs.c.ClientTime).Abs() <= config.MaxTimeDiff) &&
 					(config.ShortIds[hs.c.ClientShortId]) {
+					replayKey := realityReplayCacheKey(hs.c.AuthKey, hs.clientHello)
+					if realityClientHelloSeenOrStore(replayKey, realityReplayCacheTTL(config.MaxTimeDiff), time.Now()) {
+						replayedClientHello = true
+						if config.Show {
+							fmt.Printf("REALITY remoteAddr: %v\ths.c.ClientHelloReplay: true\n", remoteAddr)
+						}
+						break
+					}
 					hs.c.conn = conn
 				}
 				break
@@ -465,6 +474,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		failureReason = fmt.Sprintf("unsupported TLS version: %x", hs.c.vers)
 	} else if !config.ServerNames[hs.clientHello.serverName] {
 		failureReason = fmt.Sprintf("server name mismatch: %s", hs.clientHello.serverName)
+	} else if replayedClientHello {
+		failureReason = "replayed client hello"
 	} else if hs.c.conn != conn {
 		failureReason = "authentication failed or validation criteria not met"
 	} else if hs.c.out.handshakeLen[0] == 0 {
