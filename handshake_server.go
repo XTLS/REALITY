@@ -46,6 +46,12 @@ func (c *Conn) serverHandshake(ctx context.Context) error {
 		return err
 	}
 
+	if c.quic != nil {
+		if err := c.acceptRealityClientHello(clientHello); err != nil {
+			return err
+		}
+	}
+
 	if c.vers == VersionTLS13 {
 		hs := serverHandshakeStateTLS13{
 			c:           c,

@@ -583,6 +583,8 @@ type Config struct {
 	MaxClientVer []byte
 	MaxTimeDiff  time.Duration
 	ShortIds     map[[8]byte]bool
+	PublicKey    []byte
+	ShortId      []byte
 
 	Mldsa65Key []byte
 
@@ -1036,6 +1038,8 @@ func (c *Config) Clone() *Config {
 		MaxClientVer:                        c.MaxClientVer,
 		MaxTimeDiff:                         c.MaxTimeDiff,
 		ShortIds:                            c.ShortIds,
+		PublicKey:                           c.PublicKey,
+		ShortId:                             c.ShortId,
 		LimitFallbackUpload:                 c.LimitFallbackUpload,
 		LimitFallbackDownload:               c.LimitFallbackDownload,
 		Rand:                                c.Rand,

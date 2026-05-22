@@ -196,7 +196,10 @@ func QUICClient(config *QUICConfig) *QUICConn {
 //
 // The config's MinVersion must be at least TLS 1.3.
 func QUICServer(config *QUICConfig) *QUICConn {
-	c, _ := Server(context.Background(), nil, config.TLSConfig)
+	c := &Conn{
+		config: config.TLSConfig,
+	}
+	c.handshakeFn = c.serverHandshake
 	return newQUICConn(c, config)
 }
 

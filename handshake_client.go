@@ -129,7 +129,7 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *keySharePrivateKeys, *echCli
 		if minVersion >= VersionTLS13 {
 			hello.cipherSuites = nil
 		}
-		
+
 		if fips140tls.Required() {
 			hello.cipherSuites = append(hello.cipherSuites, allowedCipherSuitesTLS13FIPS...)
 		} else if hasAESGCMHardwareSupport {
@@ -201,6 +201,10 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *keySharePrivateKeys, *echCli
 		if err != nil {
 			return nil, nil, nil, err
 		}
+	}
+
+	if err := c.config.applyRealityClientHello(hello, keyShareKeys); err != nil {
+		return nil, nil, nil, err
 	}
 
 	return hello, keyShareKeys, ech, nil
