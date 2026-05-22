@@ -4,13 +4,13 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
-	"crypto/hkdf"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"time"
 
 	"golang.org/x/crypto/curve25519"
+	"golang.org/x/crypto/hkdf"
 )
 
 func (c *Config) applyRealityClientHello(hello *clientHelloMsg, keys *keySharePrivateKeys) error {
