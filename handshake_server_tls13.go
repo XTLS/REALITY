@@ -93,11 +93,11 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		fmt.Printf("REALITY remoteAddr: %v\tis using ML-DSA-65 for cert's extra signature: %v\n", remoteAddr, len(c.config.Mldsa65Key) > 0)
 	}
 	// For an overview of the TLS 1.3 handshake, see RFC 8446, Section 2.
-	/*
+	if hs.hello == nil {
 		if err := hs.processClientHello(); err != nil {
 			return err
 		}
-	*/
+	}
 	{
 		hs.suite = cipherSuiteTLS13ByID(hs.hello.cipherSuite)
 		c.cipherSuite = hs.suite.id
@@ -184,7 +184,9 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 	if _, err := c.flush(); err != nil {
 		return err
 	}
-	return nil
+	if c.quic == nil {
+		return nil
+	}
 
 	if err := hs.readClientCertificate(); err != nil {
 		return err
@@ -829,12 +831,11 @@ func (hs *serverHandshakeStateTLS13) sendServerParameters() error {
 		return err
 	}
 
-	/*
+	if c.quic != nil {
 		if _, err := hs.c.writeHandshakeRecord(hs.hello, hs.transcript); err != nil {
 			return err
 		}
-	*/
-	{
+	} else {
 		hs.transcript.Write(hs.hello.original)
 		if _, err := hs.c.writeRecord(recordTypeHandshake, hs.hello.original); err != nil {
 			return err
