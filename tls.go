@@ -137,7 +137,7 @@ func NewRatelimitedConn(conn net.Conn, limit *LimitFallback) net.Conn {
 }
 
 var (
-	size  = 16384
+	size  = 17 * 1024
 	empty = make([]byte, size)
 	types = [7]string{
 		"Server Hello",
