@@ -137,7 +137,7 @@ func NewRatelimitedConn(conn net.Conn, limit *LimitFallback) net.Conn {
 }
 
 var (
-	size  = 8192
+	size  = recordHeaderLen + maxCiphertextTLS13
 	empty = make([]byte, size)
 	types = [7]string{
 		"Server Hello",
