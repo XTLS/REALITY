@@ -24,11 +24,6 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 			key := config.Dest + " " + sni + " " + strconv.Itoa(alpn)
 			if _, loaded := GlobalPostHandshakeRecordsLens.LoadOrStore(key, false); !loaded {
 				go func() {
-					// Best-effort background calibration probe against the
-					// disguise dest — any panic here (this one or an unknown
-					// future one) must not take down the whole process, since
-					// this goroutine has no caller to propagate an error to.
-					defer func() { recover() }()
 					defer func() {
 						val, _ := GlobalPostHandshakeRecordsLens.Load(key)
 						if _, ok := val.(bool); ok {
@@ -39,10 +34,6 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 					if err != nil {
 						return
 					}
-					// Never closed before this fix - a bounded (one per
-					// unique dest/SNI/alpn key, gated by the LoadOrStore
-					// above) but real leak of a goroutine+socket per REALITY
-					// listener startup.
 					defer target.Close()
 					if config.Xver == 1 || config.Xver == 2 {
 						if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
@@ -74,15 +65,10 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 					io.Copy(io.Discard, uConn)
 				}()
 				go func() {
-					// Same reasoning as the sibling probe goroutine above:
-					// best-effort, no caller to report to, must not crash
-					// the process.
-					defer func() { recover() }()
 					target, err := net.Dial(config.Type, config.Dest)
 					if err != nil {
 						return
 					}
-					// Same leak as the sibling probe goroutine above.
 					defer target.Close()
 					if config.Xver == 1 || config.Xver == 2 {
 						if _, err = proxyproto.HeaderProxyFromAddrs(config.Xver, target.LocalAddr(), target.RemoteAddr()).WriteTo(target); err != nil {
@@ -140,14 +126,7 @@ func (c *PostHandshakeRecordDetectConn) Read(b []byte) (n int, err error) {
 	for {
 		if len(data) >= 5 && bytes.Equal(data[:3], []byte{23, 3, 3}) {
 			length := int(binary.BigEndian.Uint16(data[3:5])) + 5
-			// A truncated final record (network cut/RST/read-deadline firing
-			// mid-record against the disguise dest) can legitimately report a
-			// length longer than what actually arrived — io.ReadAll's error
-			// is discarded above, so "data" may be a partial read. Without
-			// this check, data[length:] panics ("slice bounds out of range"),
-			// which — since this runs unrecovered in NewListener's
-			// background goroutine — takes down the whole process on every
-			// REALITY inbound, not just this probe.
+			// illegal dada
 			if length > len(data) {
 				break
 			}
@@ -172,24 +151,11 @@ func (c *CCSDetectConn) Write(b []byte) (n int, err error) {
 	if len(b) >= 3 && bytes.Equal(b[:3], []byte{20, 3, 3}) {
 		var hasAlert atomic.Bool
 		go func() {
-			// Used to assign into `err` - Write's own named return value -
-			// racing unsynchronized against every `return c.Conn.Write(b)`
-			// below that also assigns it (go test -race flags this). Use a
-			// local instead; nothing here needs to surface a read error to
-			// the caller anyway.
-			//
-			// hasAlert is deliberately set on ANY read outcome (a genuine
-			// TLS alert byte, but also EOF/RST/any other error) - kept as-is
-			// on purpose: this is a conservative disguise-site probe, and
-			// treating "the site disconnected after our garbage CCS spam,
-			// for whatever reason" as "assume it noticed" is the safer
-			// failure mode for a DPI-camouflage heuristic than assuming
-			// tolerance it can't actually confirm.
 			defer hasAlert.Store(true)
 			buf := make([]byte, 512)
 			for {
-				_, readErr := c.Conn.Read(buf)
-				if readErr != nil {
+				_, err := c.Conn.Read(buf)
+				if err != nil {
 					return
 				}
 				if buf[0] == 0x15 {
