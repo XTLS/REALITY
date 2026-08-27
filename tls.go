@@ -439,11 +439,15 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				}()
 			}
 			conn.Write(s2cSaved)
-			io.Copy(underlying, NewRatelimitedConn(target, &config.LimitFallbackDownload))
+			_, err := io.Copy(underlying, NewRatelimitedConn(target, &config.LimitFallbackDownload))
 			// Here is bidirectional direct forwarding:
 			// client ---underlying--- server ---target--- dest
-			// Call `underlying.CloseWrite()` once `io.Copy()` returned
-			underlying.CloseWrite()
+			// Call `underlying.CloseWrite()` or `underlying.Close()` once `io.Copy()` returned
+			if err == nil {
+				underlying.CloseWrite()
+			} else {
+				underlying.Close()
+			}
 		}
 		waitGroup.Done()
 	}()
