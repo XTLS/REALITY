@@ -211,20 +211,30 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if copying || err != nil || hs.c.vers != VersionTLS13 || !config.ServerNames[hs.clientHello.serverName] {
 				break
 			}
-			var peerPub []byte
+			var peerPub, peerPub2 []byte
 			for _, keyShare := range hs.clientHello.keyShares {
+				if keyShare.group == X25519MLKEM768 && len(keyShare.data) == mlkem.EncapsulationKeySize768+32 {
+					if peerPub2 != nil {
+						peerPub2 = nil // ensure fail
+						break // ensure once
+					}
+					peerPub2 = keyShare.data[mlkem.EncapsulationKeySize768:]
+					continue // fast continue
+				}
 				if keyShare.group == X25519 && len(keyShare.data) == 32 {
+					if peerPub != nil {
+						peerPub2 = nil // ensure fail
+						break // ensure once
+					}
 					peerPub = keyShare.data
-					break
+					break // ensure order
 				}
 			}
+			if peerPub2 == nil {
+				break // reject outdated/strange Client Hello that doesn't have X25519MLKEM768 before optional X25519
+			}
 			if peerPub == nil {
-				for _, keyShare := range hs.clientHello.keyShares {
-					if keyShare.group == X25519MLKEM768 && len(keyShare.data) == mlkem.EncapsulationKeySize768+32 {
-						peerPub = keyShare.data[mlkem.EncapsulationKeySize768:]
-						break
-					}
-				}
+				peerPub = peerPub2 // secondary choice: X25519 in X25519MLKEM768
 			}
 			for peerPub != nil {
 				if hs.c.AuthKey, err = curve25519.X25519(config.PrivateKey, peerPub); err != nil {
