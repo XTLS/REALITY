@@ -10,6 +10,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/mldsa"
 	"crypto/rsa"
 	"crypto/x509"
 )
@@ -32,6 +33,8 @@ var (
 	}
 	allowedCurvePreferencesFIPS = []CurveID{
 		X25519MLKEM768,
+		SecP256r1MLKEM768,
+		SecP384r1MLKEM1024,
 		CurveP256,
 		CurveP384,
 		CurveP521,
@@ -40,6 +43,9 @@ var (
 		PSSWithSHA256,
 		ECDSAWithP256AndSHA256,
 		Ed25519,
+		MLDSA44,
+		MLDSA65,
+		MLDSA87,
 		PSSWithSHA384,
 		PSSWithSHA512,
 		PKCS1WithSHA256,
@@ -70,6 +76,9 @@ func isCertificateAllowedFIPS(c *x509.Certificate) bool {
 		return k.Curve == elliptic.P256() || k.Curve == elliptic.P384() || k.Curve == elliptic.P521()
 	case ed25519.PublicKey:
 		return true
+	case *mldsa.PublicKey:
+		// Only for the native module.
+		return true //!boring.Enabled
 	default:
 		return false
 	}

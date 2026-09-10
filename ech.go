@@ -6,27 +6,13 @@ package reality
 
 import (
 	"bytes"
+	"crypto/hpke"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"golang.org/x/crypto/cryptobyte"
-
-	"github.com/xtls/reality/hpke"
 )
-
-// sortedSupportedAEADs is just a sorted version of hpke.SupportedAEADS.
-// We need this so that when we insert them into ECHConfigs the ordering
-// is stable.
-var sortedSupportedAEADs []uint16
-
-func init() {
-	for aeadID := range hpke.SupportedAEADs {
-		sortedSupportedAEADs = append(sortedSupportedAEADs, aeadID)
-	}
-	slices.Sort(sortedSupportedAEADs)
-}
 
 type EchCipher struct {
 	KDFID  uint16
@@ -163,25 +149,8 @@ func parseECHConfigList(data []byte) ([]EchConfig, error) {
 	return configs, nil
 }
 
-func pickECHConfig(list []EchConfig) *EchConfig {
+func pickECHConfig(list []EchConfig) (*EchConfig, hpke.PublicKey, hpke.KDF, hpke.AEAD) {
 	for _, ec := range list {
-		if _, ok := hpke.SupportedKEMs[ec.KemID]; !ok {
-			continue
-		}
-		var validSCS bool
-		for _, cs := range ec.SymmetricCipherSuite {
-			if _, ok := hpke.SupportedAEADs[cs.AEADID]; !ok {
-				continue
-			}
-			if _, ok := hpke.SupportedKDFs[cs.KDFID]; !ok {
-				continue
-			}
-			validSCS = true
-			break
-		}
-		if !validSCS {
-			continue
-		}
 		if !validDNSName(string(ec.PublicName)) {
 			continue
 		}
@@ -197,25 +166,37 @@ func pickECHConfig(list []EchConfig) *EchConfig {
 		if unsupportedExt {
 			continue
 		}
-		return &ec
-	}
-	return nil
-}
-
-func pickECHCipherSuite(suites []EchCipher) (EchCipher, error) {
-	for _, s := range suites {
-		// NOTE: all of the supported AEADs and KDFs are fine, rather than
-		// imposing some sort of preference here, we just pick the first valid
-		// suite.
-		if _, ok := hpke.SupportedAEADs[s.AEADID]; !ok {
+		kem, err := hpke.NewKEM(ec.KemID)
+		if err != nil {
 			continue
 		}
-		if _, ok := hpke.SupportedKDFs[s.KDFID]; !ok {
+		pub, err := kem.NewPublicKey(ec.PublicKey)
+		if err != nil {
+			// This is an error in the config, but killing the connection feels
+			// excessive.
 			continue
 		}
-		return s, nil
+		for _, cs := range ec.SymmetricCipherSuite {
+			// All of the supported AEADs and KDFs are fine, rather than
+			// imposing some sort of preference here, we just pick the first
+			// valid suite.
+			kdf, err := hpke.NewKDF(cs.KDFID)
+			if err != nil {
+				continue
+			}
+			// 0xFFFF is an export-only AEAD that cannot seal/open, making
+			// it an invalid choice for encrypting ClientHelloInner.
+			if cs.AEADID == 0xFFFF {
+				continue
+			}
+			aead, err := hpke.NewAEAD(cs.AEADID)
+			if err != nil {
+				continue
+			}
+			return &ec, pub, kdf, aead
+		}
 	}
-	return EchCipher{}, errors.New("tls: no supported symmetric ciphersuites for ECH")
+	return nil, nil, nil, nil
 }
 
 func encodeInnerClientHello(inner *clientHelloMsg, maxNameLength int) ([]byte, error) {
@@ -231,7 +212,7 @@ func encodeInnerClientHello(inner *clientHelloMsg, maxNameLength int) ([]byte, e
 	} else {
 		paddingLen = maxNameLength + 9
 	}
-	paddingLen = 31 - ((len(h) + paddingLen - 1) % 32)
+	paddingLen += 31 - ((len(h) + paddingLen - 1) % 32)
 
 	return append(h, make([]byte, paddingLen)...), nil
 }
@@ -569,16 +550,6 @@ func parseECHExt(ext []byte) (echType echExtType, cs EchCipher, configID uint8, 
 	return echType, cs, configID, bytes.Clone(encap), bytes.Clone(payload), nil
 }
 
-func marshalEncryptedClientHelloConfigList(configs []EncryptedClientHelloKey) ([]byte, error) {
-	builder := cryptobyte.NewBuilder(nil)
-	builder.AddUint16LengthPrefixed(func(builder *cryptobyte.Builder) {
-		for _, c := range configs {
-			builder.AddBytes(c.Config)
-		}
-	})
-	return builder.Bytes()
-}
-
 func (c *Conn) processECHClientHello(outer *clientHelloMsg, echKeys []EncryptedClientHelloKey) (*clientHelloMsg, *echServerContext, error) {
 	echType, echCiphersuite, configID, encap, payload, err := parseECHExt(outer.encryptedClientHello)
 	if err != nil {
@@ -601,20 +572,35 @@ func (c *Conn) processECHClientHello(outer *clientHelloMsg, echKeys []EncryptedC
 
 	for _, echKey := range echKeys {
 		skip, config, err := parseECHConfig(echKey.Config)
-		if err != nil || skip {
+		if err != nil {
 			c.sendAlert(alertInternalError)
-			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKeys Config: %s", err)
+			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKey Config: %s", err)
 		}
 		if skip {
 			continue
 		}
-		echPriv, err := hpke.ParseHPKEPrivateKey(config.KemID, echKey.PrivateKey)
+		kem, err := hpke.NewKEM(config.KemID)
 		if err != nil {
 			c.sendAlert(alertInternalError)
-			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKeys PrivateKey: %s", err)
+			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKey Config KEM: %s", err)
+		}
+		echPriv, err := kem.NewPrivateKey(echKey.PrivateKey)
+		if err != nil {
+			c.sendAlert(alertInternalError)
+			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKey PrivateKey: %s", err)
+		}
+		kdf, err := hpke.NewKDF(echCiphersuite.KDFID)
+		if err != nil {
+			c.sendAlert(alertInternalError)
+			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKey Config KDF: %s", err)
+		}
+		aead, err := hpke.NewAEAD(echCiphersuite.AEADID)
+		if err != nil {
+			c.sendAlert(alertInternalError)
+			return nil, nil, fmt.Errorf("tls: invalid EncryptedClientHelloKey Config AEAD: %s", err)
 		}
 		info := append([]byte("tls ech\x00"), echKey.Config...)
-		hpkeContext, err := hpke.SetupRecipient(hpke.DHKEM_X25519_HKDF_SHA256, echCiphersuite.KDFID, echCiphersuite.AEADID, echPriv, info, encap)
+		hpkeContext, err := hpke.NewRecipient(encap, echPriv, kdf, aead, info)
 		if err != nil {
 			// attempt next trial decryption
 			continue
