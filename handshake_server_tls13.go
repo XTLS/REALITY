@@ -12,6 +12,7 @@ import (
 	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/hpke"
+	"crypto/mldsa"
 	"crypto/mlkem"
 	"crypto/rand"
 	"crypto/rsa"
@@ -28,7 +29,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/xtls/reality/fips140tls"
 	"github.com/xtls/reality/tls13"
 )
@@ -154,8 +154,12 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		if len(c.config.Mldsa65Key) > 0 {
 			h.Write(hs.clientHello.original)
 			h.Write(hs.hello.original)
-			key, _ := mldsa65.Scheme().UnmarshalBinaryPrivateKey(c.config.Mldsa65Key)
-			mldsa65.SignTo(key.(*mldsa65.PrivateKey), h.Sum(nil), nil, false, cert[126:]) // fixed location
+			key, err := mldsa.NewPrivateKey(mldsa.MLDSA65(), c.config.Mldsa65Key)
+			if err != nil {
+				return errors.New("invalid ML-DSA-65 private key: " + err.Error())
+			}
+			sig, _ := key.SignDeterministic(h.Sum(nil), nil)
+			copy(cert[126:], sig) // fixed location
 		}
 
 		hs.cert = &Certificate{
