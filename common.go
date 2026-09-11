@@ -813,9 +813,7 @@ type Config struct {
 	//
 	// By default, TLS 1.2 is currently used as the minimum. TLS 1.0 is the
 	// minimum supported by this package.
-	//
-	// The server-side default can be reverted to TLS 1.0 by including the value
-	// "tls10server=1" in the GODEBUG environment variable.
+
 	MinVersion uint16
 
 	// MaxVersion contains the maximum TLS version that is acceptable.
