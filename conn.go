@@ -1703,13 +1703,7 @@ func (c *Conn) connectionStateLocked() ConnectionState {
 	if c.config.Renegotiation != RenegotiateNever {
 		state.ekm = noEKMBecauseRenegotiation
 	} else if c.vers != VersionTLS13 && !c.extMasterSecret {
-		state.ekm = func(label string, context []byte, length int) ([]byte, error) {
-			// if ekmgodebug.Value() == "1" {
-			// 	ekmgodebug.IncNonDefault()
-			// 	return c.ekm(label, context, length)
-			// }
-			return noEKMBecauseNoEMS(label, context, length)
-		}
+		state.ekm = noEKMBecauseNoEMS
 	} else {
 		state.ekm = c.ekm
 	}
