@@ -55,7 +55,7 @@ func (e *echConfigErr) Error() string {
 
 func parseECHConfig(enc []byte) (skip bool, ec EchConfig, err error) {
 	s := cryptobyte.String(enc)
-	ec.raw = []byte(enc)
+	ec.raw = enc
 	if !s.ReadUint16(&ec.Version) {
 		return false, EchConfig{}, &echConfigErr{"version"}
 	}
