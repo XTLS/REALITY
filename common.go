@@ -1770,6 +1770,10 @@ func (c *lruSessionCache) Put(sessionKey string, cs *ClientSessionState) {
 		return
 	}
 
+	if cs == nil {
+		return
+	}
+
 	if c.q.Len() < c.capacity {
 		entry := &lruSessionCacheEntry{sessionKey, cs}
 		c.m[sessionKey] = c.q.PushFront(entry)
