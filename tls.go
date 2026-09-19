@@ -56,6 +56,7 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+//////////////////////////////////// [REALITY] SECTION: Reality server
 type CloseWriteConn interface {
 	net.Conn
 	CloseWrite() error
@@ -493,6 +494,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		return c
 	*/
 }
+//////////////////////////////////// [REALITY] SECTION END
 
 // Client returns a new TLS client side connection
 // using conn as the underlying transport.
@@ -512,6 +514,7 @@ func Client(conn net.Conn, config *Config) *Conn {
 type listener struct {
 	net.Listener
 	config *Config
+//////////////////////////////////// [REALITY] SECTION: listener
 	conns  chan net.Conn
 	err    error
 }
@@ -563,6 +566,7 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 	}
 	return l
 }
+//////////////////////////////////// [REALITY] SECTION END
 
 // Listen creates a TLS listener accepting connections on the
 // given network address using net.Listen.
@@ -779,7 +783,6 @@ func X509KeyPair(certPEMBlock, keyPEMBlock []byte) (Certificate, error) {
 	if err != nil {
 		return fail(err)
 	}
-
 	cert.Leaf = x509Cert
 
 	cert.PrivateKey, err = parsePrivateKey(keyDERBlock.Bytes)

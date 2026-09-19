@@ -192,8 +192,10 @@ func QUICClient(config *QUICConfig) *QUICConn {
 // QUICServer returns a new TLS server side connection using QUICTransport as the
 // underlying transport. The config cannot be nil.
 func QUICServer(config *QUICConfig) *QUICConn {
+	//////////////////////////////////// [REALITY] SECTION: create Reality server
 	c, _ := Server(context.Background(), nil, config.TLSConfig)
 	return newQUICConn(c, config)
+	//////////////////////////////////// [REALITY] SECTION END
 }
 
 func newQUICConn(conn *Conn, config *QUICConfig) *QUICConn {

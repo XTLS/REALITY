@@ -71,6 +71,7 @@ type serverHandshakeStateTLS13 struct {
 	echContext      *echServerContext
 }
 
+//////////////////////////////////// [REALITY] SECTION: do handshake
 var (
 	ed25519Priv       ed25519.PrivateKey
 	signedCert        []byte
@@ -197,6 +198,7 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 
 	return nil
 }
+//////////////////////////////////// [REALITY] SECTION END
 
 func (hs *serverHandshakeStateTLS13) processClientHello() error {
 	c := hs.c
@@ -832,6 +834,7 @@ func (hs *serverHandshakeStateTLS13) sendServerParameters() error {
 		return err
 	}
 
+	//////////////////////////////////// [REALITY] SECTION: do handshake
 	/*
 		if _, err := hs.c.writeHandshakeRecord(hs.hello, hs.transcript); err != nil {
 			return err
@@ -843,6 +846,7 @@ func (hs *serverHandshakeStateTLS13) sendServerParameters() error {
 			return err
 		}
 	}
+	//////////////////////////////////// [REALITY] SECTION END
 
 	if err := hs.sendDummyChangeCipherSpec(); err != nil {
 		return err

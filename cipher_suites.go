@@ -417,7 +417,15 @@ func cipherAES(key, iv []byte, isRead bool) any {
 
 // macSHA1 returns a SHA-1 based constant time MAC.
 func macSHA1(key []byte) hash.Hash {
+	//////////////////////////////////// [REALITY] SECTION: do not use newConstantTimeHash
+	//h := sha1.New
+	// The BoringCrypto SHA1 does not have a constant-time
+	// checksum function, so don't try to use it.
+	//if !boring.Enabled {
+		//h = newConstantTimeHash(h)
+	//}
 	return hmac.New(sha1.New, key)
+	//////////////////////////////////// [REALITY] SECTION END
 }
 
 // macSHA256 returns a SHA-256 based MAC. This is only supported in TLS 1.2 and

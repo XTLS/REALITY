@@ -25,11 +25,13 @@ import (
 // A Conn represents a secured connection.
 // It implements the net.Conn interface.
 type Conn struct {
+//////////////////////////////////// [REALITY] SECTION: define var
 	AuthKey           []byte
 	ClientVer         [3]byte
 	ClientTime        time.Time
 	ClientShortId     [8]byte
 	MaxUselessRecords int
+//////////////////////////////////// [REALITY] SECTION END
 
 	// constant
 	conn        net.Conn
@@ -188,8 +190,10 @@ func (c *Conn) NetConn() net.Conn {
 // A halfConn represents one direction of the record layer
 // connection, either sending or receiving.
 type halfConn struct {
+//////////////////////////////////// [REALITY] SECTION: define var
 	handshakeLen [7]int
 	handshakeBuf []byte
+//////////////////////////////////// [REALITY] SECTION END
 
 	sync.Mutex
 
@@ -544,6 +548,7 @@ func (hc *halfConn) encrypt(record, payload []byte, rand io.Reader) ([]byte, err
 
 			// Encrypt the actual ContentType and replace the plaintext one.
 			record = append(record, record[0])
+	//////////////////////////////////// [REALITY] SECTION: mimic recorded handshakeLen
 			padding := 0
 			if recordType(record[0]) == recordTypeHandshake && hc.handshakeLen[1] != 0 {
 				switch payload[0] {
@@ -574,6 +579,7 @@ func (hc *halfConn) encrypt(record, payload []byte, rand io.Reader) ([]byte, err
 			record[0] = byte(recordTypeApplicationData)
 
 			n := len(record) + c.Overhead() - recordHeaderLen
+	//////////////////////////////////// [REALITY] SECTION END
 			record[3] = byte(n >> 8)
 			record[4] = byte(n)
 
@@ -821,7 +827,9 @@ func (c *Conn) readRecordOrCCS(expectChangeCipherSpec bool) error {
 		// 5, a server can send a ChangeCipherSpec before its ServerHello, when
 		// c.vers is still unset. That's not useful though and suspicious if the
 		// server then selects a lower protocol version, so don't allow that.
+	//////////////////////////////////// [REALITY] SECTION: reject change_cipher_spec record after handshake in TLS 1.3
 		if c.vers == VersionTLS13 && !handshakeComplete {
+	//////////////////////////////////// [REALITY] SECTION END
 			return c.retryReadRecord(expectChangeCipherSpec)
 		}
 		if !expectChangeCipherSpec {
@@ -859,10 +867,12 @@ func (c *Conn) readRecordOrCCS(expectChangeCipherSpec bool) error {
 // a warning alert, empty application_data, or a change_cipher_spec in TLS 1.3.
 func (c *Conn) retryReadRecord(expectChangeCipherSpec bool) error {
 	c.retryCount++
+	//////////////////////////////////// [REALITY] SECTION: mimic recorded maxUselessRecords
 	if c.MaxUselessRecords <= 0 {
 		c.MaxUselessRecords = maxUselessRecords
 	}
 	if c.retryCount > c.MaxUselessRecords {
+	//////////////////////////////////// [REALITY] SECTION END
 		c.sendAlert(alertUnexpectedMessage)
 		return c.in.setErrorLocked(errors.New("tls: too many ignored records"))
 	}
@@ -1202,6 +1212,7 @@ func (c *Conn) writeHandshakeRecord(msg handshakeMessage, transcript transcriptH
 		transcript.Write(data)
 	}
 
+	//////////////////////////////////// [REALITY] SECTION: mimic recorded handshakeBuf
 	if c.out.handshakeBuf != nil && len(data) > 0 && data[0] != typeServerHello {
 		c.out.handshakeBuf = append(c.out.handshakeBuf, data...)
 		if data[0] != typeFinished {
@@ -1233,6 +1244,7 @@ func (c *Conn) writeRecord(typ recordType, data []byte) (int, error) {
 
 	return c.writeRecordLocked(typ, data)
 }
+	//////////////////////////////////// [REALITY] SECTION END
 
 // writeChangeCipherRecord writes a ChangeCipherSpec message to the connection and
 // updates the record layer state.
@@ -1481,7 +1493,9 @@ func (c *Conn) handlePostHandshakeMessage() error {
 		return err
 	}
 	c.retryCount++
+	//////////////////////////////////// [REALITY] SECTION: mimic recorded maxUselessRecords
 	if c.retryCount > c.MaxUselessRecords {
+	//////////////////////////////////// [REALITY] SECTION END
 		c.sendAlert(alertUnexpectedMessage)
 		return c.in.setErrorLocked(errors.New("tls: too many non-advancing records"))
 	}

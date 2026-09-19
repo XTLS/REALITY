@@ -70,7 +70,9 @@ const (
 	recordHeaderLen            = 5            // record header length
 	maxHandshake               = 65536        // maximum handshake we support (protocol max is 16 MB)
 	maxHandshakeCertificateMsg = 262144       // maximum certificate message size (256 KiB)
+	//////////////////////////////////// [REALITY] SECTION: change maxUselessRecords to match with OpenSSL
 	maxUselessRecords          = 32           // maximum number of consecutive non-advancing records
+	//////////////////////////////////// [REALITY] SECTION END
 )
 
 // TLS record types.
@@ -571,6 +573,7 @@ const (
 	RenegotiateFreelyAsClient
 )
 
+//////////////////////////////////// [REALITY] SECTION: define var
 type LimitFallback struct {
 	AfterBytes       uint64
 	BytesPerSec      uint64
@@ -600,6 +603,7 @@ type Config struct {
 
 	LimitFallbackUpload   LimitFallback
 	LimitFallbackDownload LimitFallback
+//////////////////////////////////// [REALITY] SECTION END
 
 	// Rand provides the source of entropy for the connection.
 	// If Rand is nil, TLS uses the cryptographic random reader in package
@@ -1039,6 +1043,7 @@ func (c *Config) Clone() *Config {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return &Config{
+//////////////////////////////////// [REALITY] SECTION: define var
 		DialContext:                         c.DialContext,
 		Show:                                c.Show,
 		Type:                                c.Type,
@@ -1052,6 +1057,7 @@ func (c *Config) Clone() *Config {
 		ShortIds:                            c.ShortIds,
 		LimitFallbackUpload:                 c.LimitFallbackUpload,
 		LimitFallbackDownload:               c.LimitFallbackDownload,
+//////////////////////////////////// [REALITY] SECTION END
 		Rand:                                c.Rand,
 		Time:                                c.Time,
 		Certificates:                        c.Certificates,
