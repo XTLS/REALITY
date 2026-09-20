@@ -15,6 +15,8 @@ import (
 	utls "github.com/refraction-networking/utls"
 )
 
+// Reality specifc file, used for target detection
+
 var GlobalPostHandshakeRecordsLens sync.Map
 var GlobalMaxCSSMsgCount sync.Map
 
