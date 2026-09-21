@@ -12,7 +12,6 @@ import (
 	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/hpke"
-	"crypto/mldsa"
 	"crypto/mlkem"
 	"crypto/rand"
 	"crypto/rsa"
@@ -71,7 +70,7 @@ type serverHandshakeStateTLS13 struct {
 	echContext      *echServerContext
 }
 
-//////////////////////////////////// [REALITY] SECTION: do handshake
+// ////////////////////////////////// [REALITY] SECTION: do handshake
 var (
 	ed25519Priv       ed25519.PrivateKey
 	signedCert        []byte
@@ -91,7 +90,7 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 	if c.config.Show {
 		remoteAddr := c.RemoteAddr().String()
 		fmt.Printf("REALITY remoteAddr: %v\tis using X25519MLKEM768 for TLS' communication: %v\n", remoteAddr, hs.hello.serverShare.group == X25519MLKEM768)
-		fmt.Printf("REALITY remoteAddr: %v\tis using ML-DSA-65 for cert's extra signature: %v\n", remoteAddr, len(c.config.Mldsa65Key) > 0)
+		fmt.Printf("REALITY remoteAddr: %v\tis using ML-DSA-65 for cert's extra signature: %v\n", remoteAddr, c.config.Mldsa65Key != nil)
 	}
 	// For an overview of the TLS 1.3 handshake, see RFC 8446, Section 2.
 	/*
@@ -141,7 +140,7 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 	*/
 	{
 		var cert []byte
-		if len(c.config.Mldsa65Key) > 0 {
+		if c.config.Mldsa65Key != nil {
 			cert = bytes.Clone(signedCertMldsa65)
 		} else {
 			cert = bytes.Clone(signedCert)
@@ -151,17 +150,15 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 		h.Write(ed25519Priv[32:])
 		h.Sum(cert[:len(cert)-64])
 
-		if len(c.config.Mldsa65Key) > 0 {
+		if c.config.Mldsa65Key != nil {
 			h.Write(hs.clientHello.original)
 			h.Write(hs.hello.original)
-			key, err := mldsa.NewPrivateKey(mldsa.MLDSA65(), c.config.Mldsa65Key)
+			sig, err := c.config.Mldsa65Key.SignDeterministic(h.Sum(nil), nil)
 			if err != nil {
-				return errors.New("invalid ML-DSA-65 private key: " + err.Error())
+				return errors.New("failed to sign with ML-DSA-65 key: " + err.Error())
 			}
-			sig, _ := key.SignDeterministic(h.Sum(nil), nil)
 			copy(cert[126:], sig) // fixed location
 		}
-
 		hs.cert = &Certificate{
 			Certificate: [][]byte{cert},
 			PrivateKey:  ed25519Priv,
@@ -202,6 +199,7 @@ func (hs *serverHandshakeStateTLS13) handshake() error {
 
 	return nil
 }
+
 //////////////////////////////////// [REALITY] SECTION END
 
 func (hs *serverHandshakeStateTLS13) processClientHello() error {
