@@ -31,6 +31,7 @@ import (
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/mldsa"
@@ -52,7 +53,6 @@ import (
 
 	"github.com/juju/ratelimit"
 	"github.com/pires/go-proxyproto"
-	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -237,8 +237,12 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if peerPub == nil {
 				peerPub = peerPub2 // secondary choice: X25519 in X25519MLKEM768
 			}
-			for peerPub != nil {
-				if hs.c.AuthKey, err = curve25519.X25519(config.PrivateKey, peerPub); err != nil {
+			for peerPub != nil && config.PrivateKey != nil {
+				peerKey, err := ecdh.X25519().NewPublicKey(peerPub)
+				if err != nil {
+					break
+				}
+				if hs.c.AuthKey, err = config.PrivateKey.ECDH(peerKey); err != nil {
 					break
 				}
 				if _, err = hkdf.New(sha256.New, hs.c.AuthKey, hs.clientHello.random[:20], []byte("REALITY")).Read(hs.c.AuthKey); err != nil {
