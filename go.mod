@@ -3,7 +3,6 @@ module github.com/xtls/reality
 go 1.27
 
 require (
-	github.com/cloudflare/circl v1.6.5
 	github.com/juju/ratelimit v1.0.2
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/refraction-networking/utls v1.8.2
