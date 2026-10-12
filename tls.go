@@ -56,7 +56,7 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-//////////////////////////////////// [REALITY] SECTION: Reality server
+// [REALITY] SECTION: Reality server
 type CloseWriteConn interface {
 	net.Conn
 	CloseWrite() error
@@ -217,7 +217,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if keyShare.group == X25519MLKEM768 && len(keyShare.data) == mlkem.EncapsulationKeySize768+32 {
 					if peerPub2 != nil {
 						peerPub2 = nil // ensure fail
-						break // ensure once
+						break          // ensure once
 					}
 					peerPub2 = keyShare.data[mlkem.EncapsulationKeySize768:]
 					continue // fast continue
@@ -225,7 +225,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if keyShare.group == X25519 && len(keyShare.data) == 32 {
 					if peerPub != nil {
 						peerPub2 = nil // ensure fail
-						break // ensure once
+						break          // ensure once
 					}
 					peerPub = keyShare.data
 					break // ensure order
@@ -494,7 +494,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		return c
 	*/
 }
-//////////////////////////////////// [REALITY] SECTION END
+
+// [REALITY] SECTION END
 
 // Client returns a new TLS client side connection
 // using conn as the underlying transport.
@@ -514,9 +515,9 @@ func Client(conn net.Conn, config *Config) *Conn {
 type listener struct {
 	net.Listener
 	config *Config
-//////////////////////////////////// [REALITY] SECTION: listener
-	conns  chan net.Conn
-	err    error
+	// [REALITY] SECTION: listener
+	conns chan net.Conn
+	err   error
 }
 
 // Accept waits for and returns the next incoming TLS connection.
@@ -566,7 +567,8 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 	}
 	return l
 }
-//////////////////////////////////// [REALITY] SECTION END
+
+// [REALITY] SECTION END
 
 // Listen creates a TLS listener accepting connections on the
 // given network address using net.Listen.
