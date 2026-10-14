@@ -34,6 +34,7 @@ import (
 	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/hkdf"
 	"crypto/mldsa"
 	"crypto/mlkem"
 	"crypto/rsa"
@@ -53,7 +54,6 @@ import (
 
 	"github.com/juju/ratelimit"
 	"github.com/pires/go-proxyproto"
-	"golang.org/x/crypto/hkdf"
 )
 
 //////////////////////////////////// [REALITY] SECTION: Reality server
@@ -245,7 +245,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				if hs.c.AuthKey, err = config.PrivateKey.ECDH(peerKey); err != nil {
 					break
 				}
-				if _, err = hkdf.New(sha256.New, hs.c.AuthKey, hs.clientHello.random[:20], []byte("REALITY")).Read(hs.c.AuthKey); err != nil {
+				if hs.c.AuthKey, err = hkdf.Key(sha256.New, hs.c.AuthKey, hs.clientHello.random[:20], "REALITY", 32); err != nil {
 					break
 				}
 				block, _ := aes.NewCipher(hs.c.AuthKey)
