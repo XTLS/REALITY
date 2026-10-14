@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"context"
 	"crypto"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -593,7 +594,7 @@ type Config struct {
 	Xver byte
 
 	ServerNames  map[string]bool
-	PrivateKey   []byte
+	PrivateKey   *ecdh.PrivateKey
 	MinClientVer []byte
 	MaxClientVer []byte
 	MaxTimeDiff  time.Duration
