@@ -11,7 +11,9 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.2.3 // indirect
-	github.com/klauspost/compress v1.20.0 // indirect
+	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/molecule-man/go-brrr v1.2.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
+
+replace github.com/refraction-networking/utls => github.com/xtls/utls v0.0.0-20261106014349-570772d34ef8
