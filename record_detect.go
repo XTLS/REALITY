@@ -58,8 +58,9 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 						nextProtos = nil
 					}
 					uConn := utls.UClient(detectConn, &utls.Config{
-						ServerName: sni, // needs new loopvar behaviour
-						NextProtos: nextProtos,
+						ServerName:         sni,       // needs new loopvar behaviour
+						InsecureSkipVerify: sni == "", // uTLS refuses an empty ServerName otherwise
+						NextProtos:         nextProtos,
 					}, fingerprint)
 					if err = uConn.Handshake(); err != nil {
 						return
@@ -93,8 +94,9 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 						Key:  key,
 					}
 					uConn := utls.UClient(conn, &utls.Config{
-						ServerName: sni, // needs new loopvar behaviour
-						NextProtos: nextProtos,
+						ServerName:         sni,       // needs new loopvar behaviour
+						InsecureSkipVerify: sni == "", // uTLS refuses an empty ServerName otherwise
+						NextProtos:         nextProtos,
 					}, fingerprint)
 					if err = uConn.Handshake(); err != nil {
 						return
