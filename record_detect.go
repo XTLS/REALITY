@@ -42,6 +42,9 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 							return
 						}
 					}
+					// Bound the probe: a target that accepts TCP but never answers would otherwise leave the
+					// key at false forever, and Server() keeps authenticated connections waiting on it.
+					target.SetDeadline(time.Now().Add(10 * time.Second))
 					detectConn := &PostHandshakeRecordDetectConn{
 						Conn: target,
 						Key:  key,
@@ -89,6 +92,7 @@ func DetectPostHandshakeRecordsLens(config *Config) {
 					if alpn == 0 {
 						nextProtos = nil
 					}
+					target.SetDeadline(time.Now().Add(10 * time.Second))
 					conn := &CCSDetectConn{
 						Conn: target,
 						Key:  key,
