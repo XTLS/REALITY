@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/pires/go-proxyproto"
-	utls "github.com/refraction-networking/utls"
+	utls "github.com/xtls/utls"
 )
 
 // Reality specifc file, used for target detection
