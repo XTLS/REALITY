@@ -140,4 +140,8 @@ REALITY 客户端可以完美区分临时可信证书、真证书、无效证书
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/XTLS/REALITY.svg)](https://starchart.cc/XTLS/REALITY)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xtls/reality&type=date&theme=dark&legend=top-left" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xtls/reality&type=date&legend=top-left" />
+  <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xtls/reality&type=date&legend=top-left" />
+</picture>
