@@ -201,6 +201,7 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 	}
 
 	copying := false
+	var guard *guardConn
 
 	waitGroup := new(sync.WaitGroup)
 	waitGroup.Add(2)
@@ -282,8 +283,9 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			}
 			break
 		}
+		forward := hs.c.conn != conn
 		mutex.Unlock()
-		if hs.c.conn != conn {
+		if forward {
 			if config.Show && hs.clientHello != nil {
 				fmt.Printf("REALITY remoteAddr: %v\tforwarded SNI: %v\n", remoteAddr, hs.clientHello.serverName)
 			}
@@ -379,7 +381,6 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 				s2cSaved = s2cSaved[handshakeLen:]
 				handshakeLen = 0
 			}
-			start := time.Now()
 			err = hs.handshake()
 			if config.Show {
 				fmt.Printf("REALITY remoteAddr: %v\ths.handshake() err: %v\n", remoteAddr, err)
@@ -387,24 +388,19 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			if err != nil {
 				break
 			}
-			go func() { // TODO: Probe some time-outs in advance.
-				if handshakeLen-len(s2cSaved) > 0 {
-					io.ReadFull(target, buf[:handshakeLen-len(s2cSaved)])
-				}
-				if n, err := target.Read(buf); !hs.c.isHandshakeComplete.Load() {
-					if err != nil {
-						conn.Close()
-					}
-					if config.Show {
-						fmt.Printf("REALITY remoteAddr: %v\ttime.Since(start): %v\tn: %v\terr: %v\n", remoteAddr, time.Since(start), n, err)
-					}
-				}
-			}()
+			// until the Client Finished is verified, the target answers anything else (see guardConn)
+			guard = newGuardConn(conn, target)
+			go guard.watch(handshakeLen-len(s2cSaved), NewRatelimitedConn(target, &config.LimitFallbackDownload), underlying)
+			hs.c.conn = guard
 			err = hs.readClientFinished()
+			hs.c.conn = conn
 			if config.Show {
 				fmt.Printf("REALITY remoteAddr: %v\ths.readClientFinished() err: %v\n", remoteAddr, err)
 			}
-			if err != nil {
+			if !guard.verified(err) {
+				if config.Show {
+					fmt.Printf("REALITY remoteAddr: %v\thanded over to the target before the Client Finished\n", remoteAddr)
+				}
 				break
 			}
 			for {
@@ -445,6 +441,13 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 			break
 		}
 		mutex.Unlock()
+		if guard != nil && guard.handedOver() {
+			io.Copy(target, NewRatelimitedConn(underlying, &config.LimitFallbackUpload))
+			if targetWriterCloser, ok := target.(CloseWriteConn); ok {
+				targetWriterCloser.CloseWrite()
+			}
+			<-guard.finished
+		}
 		if hs.c.out.handshakeLen[0] == 0 { // if the target sent an incorrect Server Hello, or before that
 			if hs.c.conn == conn { // if we processed the Client Hello successfully but the target did not
 				waitGroup.Add(1)
@@ -482,6 +485,8 @@ func Server(ctx context.Context, conn net.Conn, config *Config) (*Conn, error) {
 		failureReason = fmt.Sprintf("server name mismatch: %s", hs.clientHello.serverName)
 	} else if hs.c.conn != conn {
 		failureReason = "authentication failed or validation criteria not met"
+	} else if guard != nil && guard.handedOver() {
+		failureReason = "handed over to the target before the client finished"
 	} else if hs.c.out.handshakeLen[0] == 0 {
 		failureReason = "target sent incorrect server hello or handshake incomplete"
 	} else {
